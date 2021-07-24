@@ -2,7 +2,7 @@
 --- 
 Rust sdk for FISCO-BCOS  ,like some  rusted  but solid gears , help to build  rust  application with FISCO-BCOS。
 
-[FISCO BCOS](https://github.com/FISCO-BCOS/FISCO-BCOS/tree/master)的轻量级版本Rust SDK, 基础网络、密码学、合约解析能力较为完备，附带命令行交互控制台。
+[FISCO BCOS](https://github.com/FISCO-BCOS/FISCO-BCOS/tree/master)的轻量级版本Rust SDK, 基础网络、国密非国密算法支持、合约解析能力较为完备，附带命令行交互控制台。
 
 - 本项目的定位是一个学习/研究/编程兴趣的项目，仅供学习参考。如有正式的使用需求，建议在熟悉rust语言的前提下，仅部分参考本项目和fisco bcos相关的实现部分，去开发自己的生产级sdk，并经过严谨测试验证后使用。
   
