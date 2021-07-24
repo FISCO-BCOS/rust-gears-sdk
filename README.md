@@ -82,6 +82,23 @@ contractpath="./contracts"  #合约的abi，bin，sol以及历史记录文件都
 ## 控制台使用帮助：
 ```
 cargo run -- --help       控制台本身的help(采用StructOpt库默认格式）
+
+典型命令如 
+
+cargo run --  deploy HelloWorld 
+
+命令行选项：
+
+    -v
+            -v -vv -vvv...打开详细的打印
+
+    -c, --config <configfile>
+            -c 配置文件，全路径如-c conf/config.toml
+
+    -n, --contractname <contractname>
+            -n 显式的指定合约名，主要是供解析交易和回执时使用，不用带后缀，如"HelloWorld"
+
+
 ```
 ```
 cargo run -- usage      bcossdk的操作命令字帮助，建议查看包括 usage account，usage contract，usage get或usage all
