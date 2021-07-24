@@ -51,24 +51,24 @@ rust版本的本身更新较快，请按rust官网指引安装配置。
 [chain]  #链基础配置 
     chainid=1 #默认链id
     groupid=1 #默认组id
-	crypto="ECDSA"  #链采用的密码学算法，ECDSA或GM
+    crypto="ECDSA"  #链采用的密码学算法，ECDSA或GM
     accountpem="conf/client.pem" #客户端的默认账户私钥文件
-	protocol="RPC"  # 客户端和节点的连接方式 CHANNEL或RPC
+    protocol="RPC"  # 客户端和节点的连接方式 CHANNEL或RPC
 
 [contract]
 contractpath="./contracts"  #合约的abi，bin，sol以及历史记录文件都在这个目录
 
 [rpc]
-	url="http://127.0.0.1:8545" #rpc通信url，改为实际的服务器ip和端口
-	timeout = 3  
+    url="http://127.0.0.1:8545" #rpc通信url，改为实际的服务器ip和端口
+    timeout = 3  
 
 
 [channel]
     ip = "127.0.0.1"  #channel协议连接的节点ip地址
     port = 20200      #节点channel端口
     tlskind = "ECDSA"  # channel协议采用的密码算法，ECDSA或GM
-	timeout=10          
-	nativelib_echo_mode = 0  #native库是否打印调试信息的配置
+    timeout=10          
+    nativelib_echo_mode = 0  #native库是否打印调试信息的配置
     cacert= "sdk/ca.crt"     #非国密的ca证书，共3个，从节点的node[x]/sdk目录下获取
     sdkcert = "sdk/sdk.crt"
     sdkkey = "sdk/sdk.key"
