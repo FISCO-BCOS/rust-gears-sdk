@@ -1,0 +1,31 @@
+[chain]
+    chainid=1
+    groupid=1
+	crypto="ECDSA" 
+    accountpem="conf/client.pem"
+	protocol="RPC"
+
+[contract]
+contractpath="./contracts"
+
+[rpc]
+	url="http://127.0.0.1:8545"
+	timeout = 3 
+
+
+[channel]
+    ip = "127.0.0.1"
+    port = 20200
+    tlskind = "ECDSA"
+	timeout=10
+	nativelib_echo_mode = 0
+    cacert= "sdk/ca.crt"
+    sdkcert = "sdk/sdk.crt"
+    sdkkey = "sdk/sdk.key"
+    gmcacert= "sdk/gmca.crt"
+    gmsdkcert = "sdk/gmsdk.crt"
+    gmsdkkey = "sdk/gmsdk.key"
+    gmensdkcert = "sdk/gmensdk.crt"
+    gmensdkkey = "sdk/gmensdk.key"
+
+

@@ -1,0 +1,14 @@
+target/
+sdk/
+conf/
+crates/
+tmp/
+.idea
+*.dll
+*.log
+*.toml
+*.exe
+*.o
+*.so
+*.a
+*.lib
