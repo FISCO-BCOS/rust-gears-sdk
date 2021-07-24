@@ -1,5 +1,5 @@
 [package]
-name = "fisco-bcos-rust-sdk-gears"
+name = "fisco-bcos-rust-gears-sdk"
 version = "0.3.14"
 edition = "2018"
 authors = ["kentzhang <YOUKNOWTHAT@vip.qq.com>"]
