@@ -6,7 +6,7 @@ Rust sdk for FISCO-BCOS  ,like some  rusted  but solid gears , help to build  ru
 
 - 本项目的定位是一个学习/研究/编程兴趣的项目，仅供学习参考。如有正式的使用需求，建议在熟悉rust语言的前提下，仅部分参考本项目和fisco bcos相关的实现部分，去开发自己的生产级sdk，并经过严谨测试验证后使用。
   
-- 本项目并非唯一且官方的fisco bcos rust sdk，社区陆续会有其他优秀的rust的sdk参考实现，提供多种选择和参考可能性
+- 本项目并非唯一且官方的fisco bcos rust sdk，社区陆续会有其他优秀的rust的sdk实现，提供多种选择和参考可能性
 
 ## rustc环境
 
