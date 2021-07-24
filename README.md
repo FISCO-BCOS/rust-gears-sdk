@@ -6,7 +6,7 @@ Rust sdk for FISCO-BCOS  ,like some  rusted  but solid gears , help to build  ru
 
 - 本项目的定位是一个学习/研究/编程兴趣的项目，仅供学习参考。如有正式的使用需求，建议在熟悉rust语言的前提下，仅部分参考本项目和fisco bcos相关的实现部分，去开发自己的生产级sdk，并经过严谨测试验证后使用。
   
-- 本项目并非唯一且官方的fisco bcos rust sdk，社区陆续会有其他优秀的rust的sdk参考实现，提供多种选择和参考可能性
+- 本项目并非唯一且官方的fisco bcos rust sdk，社区陆续会有其他优秀的rust的sdk实现，提供多种选择和参考可能性
 
 ## rustc环境
 
@@ -51,24 +51,24 @@ rust版本的本身更新较快，请按rust官网指引安装配置。
 [chain]  #链基础配置 
     chainid=1 #默认链id
     groupid=1 #默认组id
-	crypto="ECDSA"  #链采用的密码学算法，ECDSA或GM
+    crypto="ECDSA"  #链采用的密码学算法，ECDSA或GM
     accountpem="conf/client.pem" #客户端的默认账户私钥文件
-	protocol="RPC"  # 客户端和节点的连接方式 CHANNEL或RPC
+    protocol="RPC"  # 客户端和节点的连接方式 CHANNEL或RPC
 
 [contract]
 contractpath="./contracts"  #合约的abi，bin，sol以及历史记录文件都在这个目录
 
 [rpc]
-	url="http://127.0.0.1:8545" #rpc通信url，改为实际的服务器ip和端口
-	timeout = 3  
+    url="http://127.0.0.1:8545" #rpc通信url，改为实际的服务器ip和端口
+    timeout = 3  
 
 
 [channel]
     ip = "127.0.0.1"  #channel协议连接的节点ip地址
     port = 20200      #节点channel端口
     tlskind = "ECDSA"  # channel协议采用的密码算法，ECDSA或GM
-	timeout=10          
-	nativelib_echo_mode = 0  #native库是否打印调试信息的配置
+    timeout=10          
+    nativelib_echo_mode = 0  #native库是否打印调试信息的配置
     cacert= "sdk/ca.crt"     #非国密的ca证书，共3个，从节点的node[x]/sdk目录下获取
     sdkcert = "sdk/sdk.crt"
     sdkkey = "sdk/sdk.key"
@@ -82,6 +82,23 @@ contractpath="./contracts"  #合约的abi，bin，sol以及历史记录文件都
 ## 控制台使用帮助：
 ```
 cargo run -- --help       控制台本身的help(采用StructOpt库默认格式）
+
+典型命令如 
+
+cargo run --  deploy HelloWorld 
+
+命令行选项：
+
+    -v
+            -v -vv -vvv...打开详细的打印
+
+    -c, --config <configfile>
+            -c 配置文件，全路径如-c conf/config.toml
+
+    -n, --contractname <contractname>
+            -n 显式的指定合约名，主要是供解析交易和回执时使用，不用带后缀，如"HelloWorld"
+
+
 ```
 ```
 cargo run -- usage      bcossdk的操作命令字帮助，建议查看包括 usage account，usage contract，usage get或usage all
@@ -158,7 +175,7 @@ TLS实现分为国密和非国密两种，国密的证书私钥文件会比非�
 
 **要将c语言项目编译出来的动态库，全部复制到和可执行程序相同的目录或系统目录下下，才可以加载成功**
 
-**在linux上，可以配置LD_LIBRARY_PATH=[so库所在目录]并生效。
+**在linux上，可以配置LD_LIBRARY_PATH=[so库所在目录]并生效**
 
 **加载动态库的rust实现参见src/bcossdk/bcos_tls_native.rs，如有兴趣建议仔细走读，并进行优化，目前的实现在生命周期和稳定性方面有优化空间**
 
