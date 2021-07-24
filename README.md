@@ -1,6 +1,6 @@
 # FISCO BCOS SDK : Rust Gears
 --- 
-Rust sdk for FISCO-BCOS  ,like some  rusted  but solid gears , help to build  rust  application with FISCO-BCOS。
+Rust SDK for FISCO-BCOS  ,like some  rusted  but solid gears , help to build  blockchain application with FISCO-BCOS
 
 [FISCO BCOS](https://github.com/FISCO-BCOS/FISCO-BCOS/tree/master)的轻量级版本Rust SDK, 基础网络、国密非国密算法支持、合约解析能力较为完备，附带命令行交互控制台。
 
