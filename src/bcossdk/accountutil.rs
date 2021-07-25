@@ -21,12 +21,13 @@
 
 use lazy_static::lazy_static;
 #[allow(unused_imports)]
-use parity_crypto::publickey::{Generator, KeyPair, Random};
 use pem::Pem;
 use rustc_hex::ToHex;
 use wedpr_l_crypto_signature_sm2::WedprSm2p256v1;
 use wedpr_l_libsm::sm2::signature::SigCtx;
 use wedpr_l_utils::traits::Signature;
+use wedpr_l_crypto_signature_secp256k1::WedprSecp256k1Recover;
+
 
 use crate::bcossdk::bcosclientconfig::BcosCryptoKind;
 use crate::bcossdk::commonhash::{CommonHash, HashType};
@@ -77,6 +78,17 @@ pub fn load_key_from_pem(pemfile: &str) -> Result<Vec<u8>, KissError> {
     }
 }
 
+
+fn address_from_pubkey(pubkey: &Vec<u8>, hashtype: &HashType) -> Vec<u8> {
+    let mut actpubkey = pubkey.clone();
+    if pubkey.len() == 65{
+        actpubkey = actpubkey[1..].to_vec(); //去掉头部的压缩标记
+    }
+    let hash = CommonHash::hash(&actpubkey, hashtype);
+    let addressbytes = hash[12..].to_vec();
+    addressbytes
+}
+
 pub trait IBcosAccountUtil {
     ///创建随机账户
     fn create_random(&self) -> BcosAccount;
@@ -91,30 +103,36 @@ pub trait IBcosAccountUtil {
 #[derive(Default, Debug)]
 pub struct EcdsaAccountUtil {}
 
+lazy_static! {
+     static ref WEDPRSM2:WedprSecp256k1Recover = WedprSecp256k1Recover::default();
+}
+
 impl IBcosAccountUtil for EcdsaAccountUtil {
     ///创建一个基于随机数的账户
     fn create_random(&self) -> BcosAccount {
-        let key = Random.generate();
+
+        let (pubkey,secret_key) = WEDPRSM2.generate_keypair();
+        let address = address_from_pubkey(&pubkey,&HashType::KECCAK);
         BcosAccount {
-            privkey: key.secret().as_bytes().into(),
-            pubkey: key.public().as_bytes().into(),
-            address: key.address().as_bytes().into(),
+            privkey: secret_key,
+            pubkey: pubkey,
+            address: address,
         }
     }
     ///从私钥字节转为账户
     fn from_privkey_bytes(&self, privkey: &Vec<u8>) -> Result<BcosAccount, KissError> {
-        let keyresult = KeyPair::from_secret_slice(privkey.as_slice());
+        let keyresult = WEDPRSM2.derive_public_key(privkey);
         match keyresult {
-            Ok(key) => {
+            Ok(pubkey) => {
                 let account = BcosAccount {
-                    privkey: key.secret().as_bytes().into(),
-                    pubkey: key.public().as_bytes().into(),
-                    address: key.address().as_bytes().into(),
+                    privkey: privkey.clone(),
+                    pubkey: pubkey.clone(),
+                    address: address_from_pubkey(&pubkey,&HashType::KECCAK),
                 };
                 Ok(account)
             }
             Err(e) => {
-                kisserr!(KissErrKind::Error, "turn data to key error {:?}", e)
+                kisserr!(KissErrKind::Error, "from privakey to pub key error {:?}", e)
             }
         }
     }
@@ -127,11 +145,6 @@ impl IBcosAccountUtil for EcdsaAccountUtil {
 
 //--------------------国密实现------------------------------------------
 
-fn address_from_pubkey(pubkey: &Vec<u8>, hashtype: &HashType) -> Vec<u8> {
-    let hash = CommonHash::hash(&pubkey, hashtype);
-    let addressbytes = hash[12..].to_vec();
-    addressbytes
-}
 
 lazy_static! {
     // Shared sm2 instance initialized for all functions.

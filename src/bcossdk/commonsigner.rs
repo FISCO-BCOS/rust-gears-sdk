@@ -20,10 +20,9 @@
 )]
 use std::convert::From;
 
-use ethereum_types::H256;
+
 //#[macro_use]
 use lazy_static::lazy_static;
-use parity_crypto::publickey::{self, KeyPair, Signature as ParityEcdsaSignature};
 use wedpr_l_crypto_signature_secp256k1::WedprSecp256k1Recover;
 use wedpr_l_crypto_signature_sm2::WedprSm2p256v1;
 use wedpr_l_libsm::sm2::signature::Signature as WEDPRSM2Signature;
@@ -125,7 +124,7 @@ impl Secp256Signature {
 pub trait ICommonSigner {
     fn sign(&self, data: Vec<u8>) -> Result<CommonSignature, KissError>;
 }
-
+/*
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub struct CommonSignerSecp256 {
     private_key: Vec<u8>,
@@ -162,6 +161,7 @@ impl CommonSignerSecp256 {
         KeyPair::from_secret_slice(self.private_key.as_slice())
     }
 }
+*/
 //---------------------------------------------
 ///基于wedpr的Secp256库实现签名
 #[derive(Default, Debug, Clone)]
@@ -259,15 +259,15 @@ impl CommonSignerWeDPR_SM2 {
 
 static demokeyhex: &str = "82dcd33c98a23d5d06f9331554e14ab4044a1d71b169b7a38b61c214f0690f80";
 pub fn test_common_sign() {
-    let mut ecdsasigner: CommonSignerSecp256 = CommonSignerSecp256::default();
+    //let mut ecdsasigner: CommonSignerSecp256 = CommonSignerSecp256::default();
     let mut wedprsigner: CommonSignerWeDPR_Secp256 = CommonSignerWeDPR_Secp256::default();
     let data = keccak_hash::keccak(Vec::from("abcdefg"));
-    ecdsasigner.from_hex_key(demokeyhex);
+   // ecdsasigner.from_hex_key(demokeyhex);
     wedprsigner.key_from_hexstr(demokeyhex);
 
-    let mut signer: &dyn ICommonSigner = &ecdsasigner;
-    let s1 = signer.sign(Vec::from(data.as_bytes())).unwrap();
-    signer = &wedprsigner;
+   // let mut signer: &dyn ICommonSigner = &ecdsasigner;
+   // let s1 = signer.sign(Vec::from(data.as_bytes())).unwrap();
+   let  signer = &wedprsigner;
     let s2 = signer.sign(Vec::from(data.as_bytes())).unwrap();
     //wedpr转公钥使用了bitcoin算法，前面加04是为了标注这个公钥是没有压缩的，64字节的公钥，如果是压缩的33字节公钥前面会是03
     let recover = wedprsigner
@@ -279,14 +279,14 @@ pub fn test_common_sign() {
         &recover.len(),
         &recover
     );
-    let sp = Secp256Signature::to_electrum(&s1.to_vec());
+    let sp = Secp256Signature::to_electrum(&s2.to_vec());/*
     let sig = ParityEcdsaSignature::from_electrum(sp.as_slice());
     let recoverresult = publickey::recover(&sig, &data).unwrap();
     println!(
         "recover by ecdsa ,pubkey len {}, {:?}",
         recoverresult.as_bytes().len(),
         recoverresult.as_bytes()
-    );
+    );*/
 
     let s = CommonSignature::from_vec(&s2.to_vec());
 

@@ -87,6 +87,7 @@ pub fn usage(cli:&Cli){
     let config = match configres {
         Ok(c)=>{c},
         Err(e)=>{
+            println!("-->未加载配置文件");
             println!("请确认配置文件存在 {},或用-c选项指定特定目录下的配置文件",configfile);
             return
         }

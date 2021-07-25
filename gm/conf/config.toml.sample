@@ -1,31 +1,32 @@
 [chain]
-    chainid=1
-    groupid=1
-	crypto="ECDSA" 
-    accountpem="gm/conf/client.pem"
-	protocol="RPC"
-
-[contract]
-contractpath="gm/contracts"
+chainid = 1
+groupid = 1
+crypto = "GM"
+accountpem = "gm/conf/client.pem"
+protocol = "CHANNEL"
 
 [rpc]
-	url="http://127.0.0.1:8545"
-	timeout = 3 
+url = "http://127.0.0.1:8565"
+timeout = 3
 
+[contract]
+contractpath = "./gm/contracts/"
+solc = "bin/solc"
+solcgm = "bin/socl-gm"
 
 [channel]
-    ip = "127.0.0.1"
-    port = 20200
-    tlskind = "ECDSA"
-	timeout=10
-	nativelib_echo_mode = 0
-    cacert= "sdk/ca.crt"
-    sdkcert = "sdk/sdk.crt"
-    sdkkey = "sdk/sdk.key"
-    gmcacert= "gm/sdk/gmca.crt"
-    gmsdkcert = "gm/sdk/gmsdk.crt"
-    gmsdkkey = "gm/sdk/gmsdk.key"
-    gmensdkcert = "gm/sdk/gmensdk.crt"
-    gmensdkkey = "gm/sdk/gmensdk.key"
+ip = "127.0.0.1"
+port = 20800
+tlskind = "GM"
+timeout = 10
+nativelib_echo_mode = 0
+cacert = "sdk/ca.crt"
+sdkcert = "sdk/sdk.crt"
+sdkkey = "sdk/sdk.key"
+gmcacert = "./gm/sdk/gmca.crt"
+gmsdkcert = "./gm/sdk/gmsdk.crt"
+gmsdkkey = "./gm/sdk/gmsdk.key"
+gmensdkcert = "./gm/sdk/gmensdk.crt"
+gmensdkkey = "./gm/sdk/gmensdk.key"
 
 

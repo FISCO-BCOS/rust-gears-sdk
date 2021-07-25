@@ -68,25 +68,14 @@ impl  Cli{
 
 }
 
-#[derive(StructOpt,Debug)]
-#[structopt(about = "sendtx or call to contract")]
-#[structopt(help="")]
-pub struct OptContract {
-    pub contract_name:String,
-    pub address:String,
-    pub method:String,
-    pub params:Vec<String>
-}
 
 
 
 fn main() {
 
     let cli:Cli = Cli::from_args();
-    println!("{:?}",&cli);
-    //讲cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
-    let mut cmdparams :Vec<String>= vec!(cli.cmd.clone());
-    cmdparams.append(&mut cli.params.clone());
+    println!("console input {:?}",&cli);
+
     if cli.verbos>0{
         bcossdk::macrodef::set_debugprint(true);
     }
@@ -118,16 +107,19 @@ fn main() {
             println!("{:?}",res)
         }
         "sendtx"=>{
-            let opt: OptContract = StructOpt::from_iter(cmdparams.iter());
-            println!("sendtx opt {:?}",opt);
-            let res = console_contract::sendtx(&opt,configfile.as_str());
+
+            let res = console_contract::sendtx(&cli);
             println!("send tx result : {:?}",res);
         }
         "call"=>{
-            let opt: OptContract = StructOpt::from_iter(cmdparams.iter());
-            println!("call contract opt {:?}",opt);
-            let res = console_contract::call(&opt,configfile.as_str());
+            let res = console_contract::call(&cli);
             println!("call contract result : {:?}",res);
+
+        }
+        "compile"=>{
+
+            let res = console_contract::compile(&cli);
+            println!("compile contract result : {:?}",res);
 
         }
 
@@ -140,7 +132,8 @@ fn main() {
         }
 
         "account"=>{
-            let result = console_account::cmd_account(&cmdparams,configfile.as_str());
+            let result = console_account::cmd_account(&cli);
+            println!("account cmd reuslt {:?}",result);
         }
         "usage"=>{
             console::usage::usage(&cli);

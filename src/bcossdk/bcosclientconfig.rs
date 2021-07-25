@@ -118,6 +118,8 @@ impl ChannelConfig {
 #[derive(Deserialize, Debug, Clone)]
 pub struct ContractConfig {
     pub contractpath: String,
+    pub solc :String, //solc编译器
+    pub solcgm :String, //solc国密版本编译器
 }
 
 #[derive(Deserialize, Debug, Clone)]

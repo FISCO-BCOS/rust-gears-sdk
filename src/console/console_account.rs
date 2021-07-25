@@ -26,13 +26,21 @@ struct OptAccount {
     name: Option<String>,
 }
 
-pub fn cmd_account(params: &Vec<String>, configfile: &str) -> Result<(), KissError> {
+pub fn cmd_account(cli:&Cli) -> Result<(), KissError> {
+
+        //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
+    let mut cmdparams :Vec<String>= vec!(cli.cmd.clone());
+
+    cmdparams.append(&mut cli.params.clone());
+    println!("cmdparams {:?}",cmdparams);
+    let configfile = cli.default_configfile();
+
     let configfilepath = PathBuf::from(&configfile);
     let mut workpath = configfilepath.clone();
     workpath.pop();
-    let config = ClientConfig::load(configfile)?;
-    let opt: OptAccount = StructOpt::from_iter(params.iter());
-    //println!("{:?}",opt);
+    let config = ClientConfig::load(configfile.as_str())?;
+    let opt: OptAccount = StructOpt::from_iter(cmdparams.iter());
+    println!("{:?}",opt);
     match opt.operation.as_str() {
         "new" => {
             return newaccount(&opt.name, &config, workpath.to_str().unwrap());
@@ -76,7 +84,7 @@ pub fn show_account_from_pem(path: &str, cryptokind: &BcosCryptoKind) -> Result<
     println!("{}", account.to_hexdetail());
     Ok(())
 }
-use crate::bcossdk;
+use crate::{bcossdk, Cli};
 use std::ffi::OsStr;
 use std::fs;
 

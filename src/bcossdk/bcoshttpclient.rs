@@ -49,8 +49,9 @@ impl HttpJsonRpcClient {
     ///同步的http请求，正确的话返回http的body，也就是一段json串
     pub fn request_sync(&self, outbuffer: &str) -> Result<String, KissError> {
         let client = reqwest::blocking::Client::new();
+
         /*todo 改成支持timeout*/
-        println!("request target url : {:?}", &self.target_url);
+        printlnex!("request target url : {:?}", &self.target_url);
         let postResult = client
             .post(&self.target_url)
             .headers(self.headers.clone())

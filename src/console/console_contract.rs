@@ -5,20 +5,37 @@ use crate::bcossdk::contracthistory::ContractHistory;
 use crate::bcossdk::bcossdkquery;
 use std::time::{Duration};
 use std::thread;
-use crate::{OptContract, Cli};
+use crate::{Cli};
 use crate::{kisserr};
 use serde_json::{Value as JsonValue};
 use crate::bcossdk::bcossdkquery::json_hextoint;
+use crate::bcossdk::bcosclientconfig::{ClientConfig,BcosCryptoKind};
+use std::path::PathBuf;
+use std::process::Command;
+use structopt::StructOpt;
+#[derive(StructOpt,Debug)]
+#[structopt(about = "sendtx or call to contract")]
+#[structopt(help="")]
+pub struct OptContract {
+    pub contract_name:String,
+    pub address:String,
+    pub method:String,
+    pub params:Vec<String>
+}
+
+
 
 pub fn deploy(cli:&Cli) ->Result<(),KissError>{
 
-    let configfile=match &cli.configfile{
-        Some(s)=>{s.as_str()},
-        None=>{"conf/config.toml"}
-    };
-    let mut bcossdk = BcosSDK::new_from_config(configfile)?;
+    let configfile=cli.default_configfile();
+    let mut bcossdk = BcosSDK::new_from_config(configfile.as_str())?;
     println!("BcosSDK: {}",bcossdk.to_summary());
+    //每次部署前强制编译一次对应合约，考虑到合约sol可能会有修改
+    let res = compile(cli);
+
     let contractname =&cli.params[0];
+
+
     let params = &cli.params[1..];
     println!("deploy contract {} ,params:{:?}",contractname,params);
 
@@ -45,9 +62,14 @@ pub fn deploy(cli:&Cli) ->Result<(),KissError>{
     }
     Ok(())
 }
-pub fn sendtx(opt:&OptContract, configfile:&str) ->Result<(),KissError>
+pub fn sendtx(cli:&Cli) ->Result<(),KissError>
 {
-    let mut bcossdk = BcosSDK::new_from_config(configfile)?;
+    //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
+    let mut cmdparams :Vec<String>= vec!(cli.cmd.clone());
+    cmdparams.append(&mut cli.params.clone());
+    let opt: OptContract = StructOpt::from_iter(cmdparams.iter());
+    let configfile = cli.default_configfile();
+    let mut bcossdk = BcosSDK::new_from_config(configfile.as_str())?;
     let contractdir = "contracts";
     let contractfullname = format!("{}/{}.abi",contractdir,&opt.contract_name);
     println!("contract file is {}",contractfullname);
@@ -85,8 +107,13 @@ pub fn sendtx(opt:&OptContract, configfile:&str) ->Result<(),KissError>
 }
 
 
-pub fn call(opt:&OptContract,configfile:&str)->Result<(),KissError> {
-    let mut bcossdk = BcosSDK::new_from_config(configfile)?;
+pub fn call(cli:&Cli)->Result<(),KissError> {
+    //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
+    let mut cmdparams :Vec<String>= vec!(cli.cmd.clone());
+    cmdparams.append(&mut cli.params.clone());
+    let opt: OptContract = StructOpt::from_iter(cmdparams.iter());
+    let configfile = cli.default_configfile();
+    let mut bcossdk = BcosSDK::new_from_config(configfile.as_str())?;
     let contractdir = "contracts";
     let contractfullname = format!("{}/{}.abi", contractdir, &opt.contract_name);
     println!("contract file is {}", contractfullname);
@@ -110,4 +137,30 @@ pub fn call(opt:&OptContract,configfile:&str)->Result<(),KissError> {
         return kisserr!(KissErrKind::Error,"call error !!!");
     }
     Ok(())
+}
+
+pub fn compile(cli:&Cli)->Result<(),KissError> {
+
+    let config = ClientConfig::load(cli.default_configfile().as_str())?;
+    let solc_path = match config.chain.crypto{
+        BcosCryptoKind::ECDSA=>{
+            config.contract.solc
+        },
+        BcosCryptoKind::GM=>{
+            config.contract.solcgm
+        }
+    };
+    let mut solfullpath = PathBuf::from(&config.contract.contractpath);
+    let options = ["--abi","--bin","--bin-runtime","--overwrite"];
+    solfullpath =  solfullpath.join(format!("{}.sol",cli.params[0]));
+    println!("compile sol  {} ,use solc {},outputdir:{} options: {:?} ",
+        solfullpath.to_str().unwrap(),solc_path,config.contract.contractpath.as_str(),options);
+    let output = Command::new(solc_path).
+         args(&options)
+        .arg("-o").arg(config.contract.contractpath.as_str())
+        .arg(solfullpath.to_str().unwrap())
+        .output();
+    println!("{:?}",output);
+    Ok(())
+
 }
