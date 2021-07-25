@@ -97,10 +97,15 @@ fn main() {
             println!("ready to go the  demo:simpleinfo contract ");
             sample::needinit::demo(configfile.as_str());
         },
+        "arraydemo"=>{
+            println!("ready to go the  demo : query");
+            sample::arraydemo::demo(&cli);
+        }
         "demoquery"=>{
             println!("ready to go the  demo : query");
             bcossdk::bcossdkquery::demo_query();
         }
+
         "deploy"=>{
             println!("deploy contract ");
             let res = console_contract::deploy(&cli);

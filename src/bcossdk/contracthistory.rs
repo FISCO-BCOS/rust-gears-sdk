@@ -178,13 +178,6 @@ impl ContractHistory {
         ch.getlast(contract_name)
     }
 
-    pub fn check_address(contract_name: &str, addressinput: &str) -> Result<String, KissError> {
-        ContractHistory::check_address_from_file(
-            "contracts/contract.toml",
-            contract_name,
-            addressinput,
-        )
-    }
     ///如果输入的地址是last | latest 则去指定文件里,按指定的合约名寻找最新的地址, 如果是合格地址（todo），则直接返回
     pub fn check_address_from_file(
         fullfilepath: &str,

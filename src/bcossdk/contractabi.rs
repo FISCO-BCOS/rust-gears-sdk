@@ -428,6 +428,26 @@ impl ContractABI {
         } //for
         Ok(loglistresult)
     }
+
+
+    ///将数组（类型必须是string，如果是其他类型，先转换成string数组），拼接成类似["aa","bb","cc"]这样的格式
+    ///合约接口中，如输入的是类似string[] data, uint256[] values这样的参数，则接受类似的数组
+    pub fn array_to_param(x: &Vec<String>) -> String
+    {
+        let mut allstr: String = format!("[");
+        let mut i = 0;
+        for s in x.iter() {
+            if i == 0 {
+                allstr = format!("{}\"{}\"", allstr, s);
+            } else {
+                allstr = format!("{},\"{}\"", allstr, s);
+            }
+            i += 1;
+        }
+        allstr = format!("{}]", allstr);
+        allstr
+    }
+
 }
 
 //----------------------------------------------------------------
@@ -477,7 +497,6 @@ pub fn test_parse_log() {
         println!("log is : {:?}", log);
     }
 }
-
 pub fn test_contract() {
     let abi_path = "contracts/HelloWorld.abi";
     let contract = ContractABI::new(abi_path, &HashType::WEDPR_KECCAK);

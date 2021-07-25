@@ -38,7 +38,8 @@ pub fn demo_deploy_simpleinfo(bcossdk: &mut BcosSDK) -> Result<String,KissError>
     let addr:String = receipt["result"]["contractAddress"].as_str().unwrap().to_string();
     let blocknum = json_hextoint(&receipt["result"]["blockNumber"]).unwrap();
     println!("deploy contract on block {}",blocknum);
-    let res = ContractHistory::save_to_file("contracts/contract.toml","SimpleInfo",addr.as_str(),blocknum as u32);
+    let chf = ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
+    let res = ContractHistory::save_to_file(chf.as_str(),"SimpleInfo",addr.as_str(),blocknum as u32);
     Ok(addr)
 }
 

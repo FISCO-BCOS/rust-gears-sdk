@@ -37,8 +37,8 @@ pub fn demo_deploy(bcossdk: &mut BcosSDK, contract:&ContractABI) -> Result<Strin
     let addr:String = receipt["result"]["contractAddress"].as_str().unwrap().to_string();
     let blocknum = json_hextoint(&receipt["result"]["blockNumber"]).unwrap();
     println!("deploy contract on block {}",blocknum);
-    let history_file = "contracts/contract.toml";
-    let res = ContractHistory::save_to_file(history_file,"NeedInit",addr.as_str(),blocknum as u32);
+     let history_file = ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
+    let res = ContractHistory::save_to_file(history_file.as_str(),"NeedInit",addr.as_str(),blocknum as u32);
 
     Ok(addr)
 }
@@ -70,8 +70,8 @@ pub fn demo(configfile:&str)
     let decodereuslt = contract.decode_output_byname("get", output);
     println!("get function output: {:?}",decodereuslt);
 
-    let history_file="contracts/contract.toml";
-    let lastest = ContractHistory::get_last_from_file(history_file,contract_name);
+    let history_file=  ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
+    let lastest = ContractHistory::get_last_from_file(history_file.as_str(),contract_name);
     println!("demo contract {} done",lastest.unwrap());
     println!("demo on : {:?}",bcossdk.getNodeVersion());
     bcossdk.finish();
