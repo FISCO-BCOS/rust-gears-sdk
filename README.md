@@ -22,7 +22,7 @@ rust版本的本身更新较快，请按rust官网指引安装配置。
 ## crates.io引用方式
 crates.io地址: (https://crates.io/crates/fisco-bcos-rust-gears-sdk)
 
-在应用项目的Cargo.toml的dependencies增加引用: ```fisco-bcos-rust-gears-sdk = "0.3.141"``` (可按crates.io上实际已经发布版本的更新版本号)
+在应用项目的Cargo.toml的dependencies增加引用: ```fisco-bcos-rust-gears-sdk = "0.3.141"``` (可按crates.io上实际已经发布的版本更新版本号)
 
 调用示例:
 ```
