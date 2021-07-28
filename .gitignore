@@ -2,11 +2,13 @@ target/
 sdk/
 lib/
 .idea/
+conf/config.toml
+gm/conf/config.toml
 conf/client_config.toml
 Cargo.lock
+log/
 *.exe
 *.dll
-*.toml
 *.a
 *.so
 *.ini 
@@ -14,3 +16,4 @@ Cargo.lock
 *.crt
 *.key
 gm/
+*.log
