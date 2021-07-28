@@ -18,6 +18,28 @@ rustc 1.55.0-nightly (67b03007c 2021-07-23)
 
 rust版本的本身更新较快，请按rust官网指引安装配置。
 
+
+## crates.io引用方式
+crates.io地址: (https://crates.io/crates/fisco-bcos-rust-gears-sdk)
+
+在应用项目的Cargo.toml的dependencies增加引用: ```fisco-bcos-rust-gears-sdk = "0.3.141"``` (可按crates.io上实际已经发布版本的更新版本号)
+
+调用示例:
+```
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
+
+fn main() {
+    //enable log
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap(); 
+    //load config and init the bcossdk
+    let mut bcossdk = BcosSDK::new_from_config("conf/config.toml").unwrap(); 
+    //simple get version,other api see document or sample
+    let res = bcossdk.getNodeVersion();
+    println!("res {:?}",res);
+}
+```
+
+
 ## 关键特性
 
 概要:
