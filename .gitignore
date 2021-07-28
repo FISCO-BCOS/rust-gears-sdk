@@ -5,8 +5,13 @@ lib/
 conf/config.toml
 gm/conf/config.toml
 conf/client_config.toml
+contracts/contracthistory.toml
+gm/contracts/contracthistory.toml
+contracts/contract.toml
 Cargo.lock
 log/
+*.bin
+*.bin-runtime
 *.exe
 *.dll
 *.a
