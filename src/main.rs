@@ -27,7 +27,7 @@ use crate::bcossdk::contracthistory::ContractHistory;
 use crate::console::{console_account, console_contract};
 use crate::console::console_cmds;
 use crate::bcossdk::bcosclientconfig::ClientConfig;
-
+use log::info;
 
 #[derive(StructOpt,Debug)]
 #[structopt(about = "Fisco Bcos rust sdk console")]
@@ -72,11 +72,12 @@ impl  Cli{
 
 
 fn main() {
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
     let cli:Cli = Cli::from_args();
+    info!("start with cli {:?}",&cli);
     println!("console input {:?}",&cli);
-
-    if cli.verbos>0{
+    if cli.verbos > 0{
         bcossdk::macrodef::set_debugprint(true);
     }
     //println!("console cmd params: {:?}",cmdparams);

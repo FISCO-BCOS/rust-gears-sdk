@@ -44,6 +44,12 @@ rust版本的本身更新较快，请按rust官网指引安装配置。
 - sdk  : 连接节点的证书，国密和非国密的都放到这里
 - contracts : 合约的sol，abi，bin等
 - gm: 考虑到同时连接国密和非国密节点，推荐建立一个gm目录，包含以上的conf,sdk,contracts等目录结构，保存国密节点所需的配置、证书、私钥、合约定义和代码等
+- log: 控制台运行后会自动生成log目录，保存日志文件。日志配置见log4rs，默认配置是输出滚动日志，可根据实际需要修改。
+```
+tips:调用sdk代码前，应保证调用过一次日志初始化语句： 
+log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+```
+  
 
 ## 配置文件
 主要配置文件是 conf/config.toml，项目提供了conf/config.toml.sample,将其复制或去掉sample后缀即可。配置项解释：

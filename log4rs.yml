@@ -1,0 +1,59 @@
+#log pattern : https://docs.rs/log4rs/1.0.0/log4rs/encode/pattern/index.html
+# time format https://docs.rs/chrono/0.4.2/chrono/format/strftime/index.html
+
+appenders:
+  # An appender named "stdout" that writes to stdout
+  stdout:
+    kind: console
+    encoder:
+      pattern: "{d(%m-%d %H:%M:%S:%3f)} {l} [{M}] {m}{n}"
+
+  sdklog:
+    kind: rolling_file
+    path: "log/bcossdk.log"
+    policy:
+      trigger:
+        kind: size
+        limit: 10mb
+      roller:
+        kind: fixed_window
+        pattern: "log/archive-bcossdk-{}.log"
+        base: 0
+        count: 200
+    encoder:
+      pattern: "{d(%m-%d %H:%M:%S:%3f)} {l} [{M}] {m}{n}"
+
+# Set the default logging level to "warn" and attach the "stdout" appender to the root
+root:
+  level: trace
+  appenders:
+    - sdklog
+
+loggers:
+  # Route log events sent to the "app" logger to the "file" appender,
+  # and *not* the normal appenders installed at the root
+  app:
+    level: info
+    appenders:
+      - sdklog
+    additive: false
+
+
+
+
+
+#
+#l``, level - The log level.
+#L, line - The line that the log message came from, or ??? if not provided.
+#m, message - The log message.
+#M, module - The module that the log message came from, or ??? if not provided.
+#P, pid - The current process id.
+#n - A platform-specific newline.
+#t, target - The target of the log message.
+#T, thread - The name of the current thread.
+#I, thread_id - The ID of the current thread.
+#X, mdc - A value from the MDC. The first argument specifies the key, and the second argument specifies the default value if the key is not present in the MDC. The second argument is optional, and defaults to the empty string.
+#{X(user_id)} - 123e4567-e89b-12d3-a456-426655440000
+#{X(nonexistent_key)(no mapping)} - no mapping
+#An "unnamed" formatter simply formats its argument, applying the format specification.
+#{({l} {m})} - INFO hello

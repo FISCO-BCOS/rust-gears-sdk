@@ -48,7 +48,8 @@ chrono="0.4"
 time="0.1"
 openssl = "0.10"
 anyhow = "1"
-
+log = "0.4"
+log4rs = "1.0.0"
 [dev-dependencies]
 paste = "1"
 primitive_types07 = { package = "primitive-types", version = "0.7"}

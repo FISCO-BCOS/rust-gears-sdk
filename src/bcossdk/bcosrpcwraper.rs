@@ -98,7 +98,7 @@ impl BcosRPC {
     pub fn finish(&mut self) {
         self.channel_client.finish();
     }
-    pub fn switch_rpc_request_sync(&mut self, outbuffer: String) -> Result<String, KissError> {
+    pub fn switch_rpc_request_sync(&mut self, outbuffer: &String) -> Result<String, KissError> {
         //let mut response_text =String::default();
         match self.config.chain.protocol {
             BcosClientProtocol::RPC => self.jsonrpc_client.request_sync(&outbuffer),
@@ -114,16 +114,17 @@ impl BcosRPC {
         cmd: &str,
         params_value: &JsonValue,
     ) -> Result<JsonValue, KissError> {
+        log::debug!("rpc_request_sync cmd {:?},{:?}",cmd,params_value);
         let req = RpcRequestData {
             method: cmd.to_string(),
             params: params_value.clone(),
             ..RpcRequestData::default()
         };
         let outbuffer = req.encode()?;
-        printlnex!("encode result {:?}", outbuffer);
-
-        let responsebuffer = self.switch_rpc_request_sync(outbuffer)?;
-
+        printlnex!("request: {:?}", outbuffer);
+        log::info!("request: {:?}", outbuffer);
+        let responsebuffer = self.switch_rpc_request_sync(&outbuffer)?;
+        log::info!("response:  {:?}", &responsebuffer);
         let jsonres: JsonResult<JsonValue> = serde_json::from_str(responsebuffer.as_str());
         match jsonres {
             Ok(jsonval) => {
@@ -131,6 +132,9 @@ impl BcosRPC {
                 Ok(jsonval)
             }
             Err(e) => {
+                log::error!("parse json rpc response json error {},{:?}",
+                    responsebuffer,
+                    e);
                 return kisserr!(
                     KissErrKind::EFormat,
                     "parse json rpc response json error {},{:?}",
