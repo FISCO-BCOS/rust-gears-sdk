@@ -33,7 +33,7 @@ fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap(); 
     //load config and init the bcossdk
     let mut bcossdk = BcosSDK::new_from_config("conf/config.toml").unwrap(); 
-    //simple get version,other api see document or sample
+    //get node version,other apis see fisco-bcos document or sample
     let res = bcossdk.getNodeVersion();
     println!("res {:?}",res);
 }
