@@ -24,6 +24,8 @@ pub fn usage_contract(config:&ClientConfig){
 
     call   [合约名] [地址或latest/last] [方法名] [方法对应的参数...], 如 call HelloWorld latest  get
 
+    compile [合约名]  调用配置好的solc编译器，编译合约，默认合约sol文件和输出都在配置的contracts目录，solc下载参见contrats目录下的README（注：用deploy指令部署合约时，会先尝试编译）
+
     合约成功部署后，新地址会写入合约目录的contracthistory.toml文件，后续就可以用lastest/last代替地址调用了
 
     写入历史和寻找合约ABI文件的路径以配置文件里的[contract]contractpath=项为准。

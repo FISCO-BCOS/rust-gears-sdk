@@ -85,6 +85,8 @@ log4rs::init_file("log4rs.yml", Default::default()).unwrap();
 
 [contract]
 contractpath="./contracts"  #合约的abi，bin，sol以及历史记录文件都在这个目录
+solc = "./bin/solc"         #非国密版的solc编译器全路径
+solcgm = "./bin/solc-gm"    #国密版本的solc编译器全路径
 
 [rpc]
     url="http://127.0.0.1:8545" #rpc通信url，改为实际的服务器ip和端口
@@ -151,6 +153,8 @@ cargo run -- usage      bcossdk的操作命令字帮助，建议查看包括 usa
     sendtx [合约名] [地址或latest/last] [方法名] [方法对应的参数...], 如 sendtx HelloWorld latest  set "hello"
 
     call   [合约名] [地址或latest/last] [方法名] [方法对应的参数...], 如 call HelloWorld latest  get
+    
+    compile [合约名]  调用配置好的solc编译器，编译合约，默认合约sol文件和输出都在配置的contracts目录，solc下载参见contrats目录下的README（注：用deploy指令部署合约时，会先尝试编译）
 
     合约成功部署后，新地址会写入合约目录的contracthistory.toml文件，后续就可以用lastest/last代替地址调用了
 
