@@ -139,28 +139,30 @@ pub fn call(cli:&Cli)->Result<(),KissError> {
     Ok(())
 }
 
+
+
 pub fn compile(cli:&Cli)->Result<(),KissError> {
 
-    let config = ClientConfig::load(cli.default_configfile().as_str())?;
-    let solc_path = match config.chain.crypto{
-        BcosCryptoKind::ECDSA=>{
-            config.contract.solc
-        },
-        BcosCryptoKind::GM=>{
-            config.contract.solcgm
-        }
-    };
-    let mut solfullpath = PathBuf::from(&config.contract.contractpath);
-    let options = ["--abi","--bin","--bin-runtime","--overwrite"];
-    solfullpath =  solfullpath.join(format!("{}.sol",cli.params[0]));
-    println!("compile sol  {} ,use solc {},outputdir:{} options: {:?} ",
-        solfullpath.to_str().unwrap(),solc_path,config.contract.contractpath.as_str(),options);
-    let output = Command::new(solc_path).
-         args(&options)
-        .arg("-o").arg(config.contract.contractpath.as_str())
-        .arg(solfullpath.to_str().unwrap())
-        .output();
-    println!("{:?}",output);
-    Ok(())
+    //let config = ClientConfig::load(cli.default_configfile().as_str())?;
+    let contract_name = cli.params[0].clone();
+    let outputres = BcosSDK::compile(contract_name.as_str(),cli.default_configfile().as_str());
+    println!("compile [{}] done。",contract_name);
+    match outputres
+    {
+        Ok(output)=>{
 
+            println!("compiler {}",output.status);
+            if output.stdout.len() > 0{
+                println!("stdout: {}",String::from_utf8(output.stdout).unwrap());
+            }
+            if output.stderr.len() > 0{
+                println!("stderr: {}",String::from_utf8(output.stderr).unwrap());
+            }
+        }
+        Err(e)=>{
+            println!("Error : {:?}",e);
+        }
+    }
+
+    Ok(())
 }

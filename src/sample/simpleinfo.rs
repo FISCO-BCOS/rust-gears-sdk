@@ -25,6 +25,9 @@ pub fn demo_deploy_simpleinfo(bcossdk: &mut BcosSDK) -> Result<String,KissError>
 {
     let params:[String;0]=[];
     let contract_name = "SimpleInfo";
+    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    println!("compile result:{:?}",compileres);
+    
     let binfile = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name.to_string());
     let v = bcossdk.deploy_file(binfile.as_str(), "");
     println!("request response {:?}", v);

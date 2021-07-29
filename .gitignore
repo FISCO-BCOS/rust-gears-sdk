@@ -10,6 +10,7 @@ gm/contracts/contracthistory.toml
 contracts/contract.toml
 Cargo.lock
 log/
+*.signatures
 *.bin
 *.bin-runtime
 *.exe

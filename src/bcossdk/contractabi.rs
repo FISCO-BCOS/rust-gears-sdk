@@ -45,6 +45,7 @@ use crate::bcossdk::commonhash::{CommonHash, HashType};
 use crate::bcossdk::event_utils;
 use std::path::PathBuf;
 use std::str::FromStr;
+use crate::bcossdk::event_utils::EventABIUtils;
 
 #[derive(Clone, Debug)]
 pub struct ContractABI {
@@ -53,6 +54,7 @@ pub struct ContractABI {
     pub event_hash_map: HashMap<Hash, Event>,
     pub func_selector_map: HashMap<Vec<u8>, Function>,
     pub hashtype: HashType,
+    pub event_abi_utils:EventABIUtils,
 }
 
 #[derive(Clone, Debug)]
@@ -101,6 +103,7 @@ impl ContractABI {
             event_hash_map: HashMap::new(),
             func_selector_map: HashMap::new(),
             hashtype: hashtype.clone(),
+            event_abi_utils: EventABIUtils::new(&hashtype)
         };
         contract.map_event_to_hash();
         contract.map_function_to_selector();
@@ -158,7 +161,7 @@ impl ContractABI {
         for (index, val) in self.contract.events.iter().enumerate() {
             let event = val.1.get(0).unwrap();
             event.signature();
-            let hash = event_utils::event_signature(&event, &self.hashtype);
+            let hash = self.event_abi_utils.event_signature(&event);
             self.event_hash_map.insert(hash, event.clone());
             //println!("event hash {} ,event {:?}", hex::encode(hash), event);
         }
@@ -409,7 +412,7 @@ impl ContractABI {
                 Some(e) => {
                     //println!("event abi is {:?}",e);
                     //println!("the raw log: {:?}",rawlog);
-                    let parse_result = event_utils::parse_log(&e, rawlog, &self.hashtype);
+                    let parse_result = self.event_abi_utils.parse_log(&e, rawlog);
                     printlnex!("log parse result: eventname:{}: {:?}", e.name, parse_result);
                     match parse_result {
                         Ok(log) => {

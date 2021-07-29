@@ -24,8 +24,13 @@ use crate::bcossdk::liteutils::datetime_str;
 use crate::console::console_utils;
 pub fn demo_deploy_helloworld(bcossdk: &mut BcosSDK) -> Result<String,KissError>
 {
-    let binpath = format!("{}/HelloWorld.bin",bcossdk.config.contract.contractpath);
+    let contract_name = "HelloWorld";
+    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    println!("compile result:{:?}",compileres);
+
+    let binpath = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name);
     println!("Contract Bin file {}",&binpath);
+
     let v = bcossdk.deploy_file(binpath.as_str(), "");
     println!("request response {:?}", v);
     let response = v.unwrap();

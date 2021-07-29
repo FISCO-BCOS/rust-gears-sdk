@@ -25,6 +25,8 @@ use crate::console::console_utils::display_transaction_receipt;
 pub fn demo_deploy(bcossdk: &mut BcosSDK, contract:&ContractABI) -> Result<String,KissError>
 {
     let contract_name = "ArrayDemo";
+    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    println!("compile result:{:?}",compileres);
     let params:[String;2]=["default text 009".to_string(),"199".to_string()];
 
     let binfile = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name.to_string());
