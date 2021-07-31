@@ -86,6 +86,7 @@ impl BcosSDK {
         let mut ecdsasigner = Option::None;
         let mut gmsigner = Option::None;
         let account = account_from_pem(config.chain.accountpem.as_str(), &config.chain.crypto)?;
+        //printlnex!("done account");
         match &config.chain.crypto {
             BcosCryptoKind::ECDSA => {
                 let mut signer = CommonSignerWeDPR_Secp256::default();
@@ -96,6 +97,7 @@ impl BcosSDK {
                 let mut signer = CommonSignerWeDPR_SM2::default();
                 signer.account = account.clone();
                 gmsigner = Option::from(signer);
+
             }
         }
         let netclient = BcosRPC::new(&config)?;
@@ -299,7 +301,18 @@ impl BcosSDK {
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)
     }
-
+    ///简单封装下同步的发送交易且获得回执的方法。默认等待1s,这是个非常常用的方法，尤其是用于demo时
+    pub fn sendRawTransactionGetReceipt(
+        &mut self,
+        contract: &ContractABI,
+        to_address: &str,
+        methodname: &str,
+        params: &[String],
+    ) -> Result<JsonValue, KissError> {
+        let response = self.send_raw_transaction(&contract, &to_address, methodname, &params)?;
+        let txhash = response["result"].as_str().unwrap();
+        self.try_getTransactionReceipt(txhash, 3, false)
+    }
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#sendrawtransactionandgetproof
     pub fn sendRawTransactionAndGetProof(
         &mut self,

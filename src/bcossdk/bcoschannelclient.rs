@@ -75,6 +75,7 @@ impl BcosChannelClient {
                 channelimpl = Box::from(ssl_client)
             }
             BcosCryptoKind::GM => {
+
                 let mut tls_client = BcosNativeTlsClient::default(&config);
                 tls_client.build()?;
                 channelimpl = Box::from(tls_client);

@@ -181,6 +181,7 @@ impl BcosNativeTlsClient {
     }
 
     pub fn build(&mut self) -> Result<bool, KissError> {
+
         let res = BcosNativeTlsClient::openlib();
         let nativelib = match res {
             Ok(lib) => lib,
@@ -188,6 +189,7 @@ impl BcosNativeTlsClient {
                 return Err(e);
             }
         };
+
         unsafe {
             let func_create: Symbol<FN_SSOCK_CREATE> = (&nativelib).get(b"ssock_create").unwrap();
             let pssock_ptr = func_create();
@@ -195,10 +197,14 @@ impl BcosNativeTlsClient {
                 pssock: pssock_ptr,
                 nativelib: nativelib,
             };
+
             self.ssocklib = Option::from(lib);
             self.set_echo_mode(self.config.nativelib_echo_mode as i32);
+
             self.init()?;
+            // printlnex!("debug tls init done");
             self.connect()?;
+            // printlnex!("debug  connect done");
             self.is_valid = true;
             self.is_connect = true;
             Ok(self.is_valid)
@@ -315,6 +321,7 @@ impl BcosNativeTlsClient {
                 .nativelib
                 .get(b"ssock_init")
                 .unwrap();
+            //printlnex!("debug get ssock_init done");
             //let r =func_init(self.ssocklib.as_ref().unwrap().pssock,self.cacrt.as_str().as_ptr(),self.sdkcrt.as_str().as_ptr(),self.sdkkey.as_str().as_ptr(),"","");
             let r;
             match self.config.tlskind {

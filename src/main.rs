@@ -18,7 +18,7 @@ use std::{env, thread};
 use crate::bcossdk::kisserror::{KissError,KissErrKind};
 use std::env::Args;
 
-use structopt::StructOpt;
+
 use crate::bcossdk::contractabi::ContractABI;
 use crate::bcossdk::bcossdk::BcosSDK;
 use std::time::Duration;
@@ -28,52 +28,11 @@ use crate::console::{console_account, console_contract};
 use crate::console::console_cmds;
 use crate::bcossdk::bcosclientconfig::ClientConfig;
 use log::info;
-
-#[derive(StructOpt,Debug)]
-#[structopt(about = "Fisco Bcos rust sdk console")]
-pub struct Cli {
-     /// 操作指令字，如 usage,deploy，sendtx，call，account，getXXX等.
-     ///
-     /// 输入 usage account/contract/get/all 查看对应的指令列表
-     ///
-     ///
-     pub cmd: String,
-     ///
-     /// 当前操作的参数,根据操作命令字的不同会有所变化
-     //#[structopt(parse(from_os_str))]
-    pub params : Vec<String>,
-    ///-c 配置文件，全路径如-c conf/config.toml
-    #[structopt(short = "c", long = "config") ]
-    pub configfile : Option<String>,
-    ///-n 显式的指定合约名，不用带后缀，如"HelloWorld"
-    #[structopt(short = "n", long = "contractname")]
-    pub contractname : Option<String>,
-    ///-v -vv -vvv...打开详细的打印
-    #[structopt(short = "v",parse(from_occurrences))]
-    pub verbos : u32,
-}
-
-impl  Cli{
-    pub fn default_configfile(&self)->String{
-        let configfile = match &self.configfile{
-            Option::None =>{"conf/config.toml"},
-            Some(f)=>{f.as_str()}
-        };
-        configfile.to_string()
-    }
-    pub fn default_config(&self)->Result<ClientConfig,KissError>{
-        let configfile =self.default_configfile();
-        ClientConfig::load(configfile.as_str())
-    }
-
-}
-
-
-
+use crate::bcossdk::cli_common::{Cli};
+use structopt::StructOpt;
 
 fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-
     let cli:Cli = Cli::from_args();
     info!("start with cli {:?}",&cli);
     println!("console input {:?}",&cli);
@@ -150,4 +109,20 @@ fn main() {
         }
     }
 
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    //set RUST_TEST_NOCAPTURE=1
+    #[test]
+    fn cli_check() {
+           let cli:Cli = Cli::from_args();
+            println!("cli {:?}",cli);
+            println!("params {:?}",std::env::args_os());
+            assert!(cli.cmd.len() > 0);
+    }
 }

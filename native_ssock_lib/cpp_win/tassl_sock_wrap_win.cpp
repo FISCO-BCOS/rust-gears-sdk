@@ -31,7 +31,7 @@
 
 using namespace fisco_tassl_sock_wrap;
 
-int g_eode_mode = ECHO_NONE;
+int g_echo_mode = ECHO_NONE;
 void altprint(const int echo_mode,const char *fmt,...)
 {
 	
@@ -119,7 +119,7 @@ void TasslSockWrap::set_echo_mode(int mode_)
 {
     //printf("echo mode input : %d\n",mode_);
 	echo_mode = mode_;
-	g_eode_mode = mode_;
+	g_echo_mode = mode_;
 	
 }
 
@@ -148,28 +148,41 @@ int init_socket()
 	if(WSAStartup(sockVersion, &data) != 0)
 	{
 		get_socket_last_error_msg(WSAGetLastError(),msgbuf,sizeof(msgbuf));
-		altprint(g_eode_mode,"init_socket error %s\n",msgbuf);
+		altprint(g_echo_mode,"init_socket error %s\n",msgbuf);
 		return -1;
 	}
 	return 0;
  
 }
+static HANDLE hMutex = CreateMutex(NULL,FALSE,NULL);
+static bool g_is_ssl_init = false;
 int  init_openssl()
 {
+    if( g_is_ssl_init ){
+        altprint(g_echo_mode,"[in cpp wrap -->] openssl has been init ,return\n");
+        return 0;
+     }
+    WaitForSingleObject(hMutex, INFINITE);
+    if( g_is_ssl_init ){
+        altprint(g_echo_mode    ,"[in cpp wrap -->] openssl has been init,release lock and return\n");
+        ReleaseMutex(hMutex);
+        return 0;
+     }
+
+    //SSL_library_init不可重入，这个方法要加锁，
     int retval = SSL_library_init();
-    if (!retval)
+      altprint(g_echo_mode    ,"[in cpp wrap -->] init openssl (NOT THREAD SAFE) ret %d\n",retval);
+    if (retval == 1)
 	{
-		
-		return -1;
+		//载入所有SSL算法
+    	OpenSSL_add_ssl_algorithms ();
+        //载入所有错误信息
+        SSL_load_error_strings();
+	    ERR_load_crypto_strings();
+        g_is_ssl_init = true;
 	}
-	//载入所有SSL算法
-	OpenSSL_add_ssl_algorithms ();
-
-	//载入所有错误信息
-    SSL_load_error_strings();
-	ERR_load_crypto_strings();
-
-	return 0;
+	ReleaseMutex(hMutex);
+	return retval;
 }
 
 
@@ -271,14 +284,14 @@ int TasslSockWrap::init(const char *ca_crt_file_,
 				const char * en_key_file_
 					)
 {
-    altprint(echo_mode,"TasslSockWrap:init %s,%s,%s\n",ca_crt_file,sign_crt_file,sign_key_file);
+    altprint(echo_mode,"[in cpp wrap -->] TasslSockWrap:init %s,%s,%s,%s,%s\n",ca_crt_file_,sign_crt_file_,sign_key_file_,en_crt_file_,en_key_file_);
 	strcpy(ca_crt_file,ca_crt_file_);
 	strcpy(sign_crt_file,sign_crt_file_);
 	strcpy(sign_key_file,sign_key_file_);
 	strcpy(en_crt_file,en_crt_file_);
 	strcpy(en_key_file,en_key_file_);		
 	int retval = 0; 
-	altprint(echo_mode,"[in cpp wrap -->] TasslSockWrap init\n");
+	//altprint(echo_mode,"[in cpp wrap -->] TasslSockWrap init\n");
 	ctx = NULL;
 	ssl = NULL;
 	retval = init_socket();
@@ -287,12 +300,13 @@ int TasslSockWrap::init(const char *ca_crt_file_,
 		altprint(echo_mode,"[in cpp wrap -->] Error of init_socketCTX!\n");
 		return -1;	
 	}
-	
+	//altprint(echo_mode,"[in cpp wrap -->] init_openssl\n");
 	retval = init_openssl()	;
 	if (retval < 0 )
 	{
 		return retval;
 	}
+	//altprint(echo_mode,"[in cpp wrap -->] SSL_CTX_new\n");
 	ctx = SSL_CTX_new(TLSv1_2_client_method());
 	if(ctx == NULL)
 	{
@@ -305,6 +319,7 @@ int TasslSockWrap::init(const char *ca_crt_file_,
 	SSL_CTX_set_mode (ctx, SSL_MODE_AUTO_RETRY);
 	
 	retval = load_ca_files();
+	//altprint(echo_mode,"[in cpp wrap -->] SSL_new\n");
 	ssl = SSL_new (ctx);
 	//altprint(echo_mode,"[in cpp wrap -->] after init ctx %d, ssl %d\n",ctx,ssl);
 	return retval;

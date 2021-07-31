@@ -56,6 +56,7 @@ impl CommonHash {
             }
             HashType::WEDRP_SM3 => {
                 let msg_hash = WEDPR_SM3.hash(data.as_slice());
+                //printlnex!("msg_hash: {:?}",msg_hash);
                 msg_hash
             }
             HashType::KECCAK => {

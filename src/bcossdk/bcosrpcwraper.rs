@@ -79,6 +79,7 @@ pub struct BcosRPC {
 impl BcosRPC {
     pub fn new(config: &ClientConfig) -> Result<BcosRPC, KissError> {
         //默认建一个json rpc的对象
+         //           printlnex!("new channel_client");
         let mut jsonrpc_client = HttpJsonRpcClient::new();
         jsonrpc_client.target_url = config.rpc.url.clone();
         jsonrpc_client.timeout = config.rpc.timeout;
@@ -86,7 +87,9 @@ impl BcosRPC {
         if config.chain.protocol == BcosClientProtocol::CHANNEL {
             channel_client = BcosChannelClient::new(&config.channel)?;
         }else{
+
             channel_client = BcosChannelClient::default(&config.channel);
+            printlnex!("done channel_client");
         }
         Ok(BcosRPC {
             config: config.clone(),

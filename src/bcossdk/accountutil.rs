@@ -176,7 +176,7 @@ impl IBcosAccountUtil for GMAccountUtil {
         };
         let derived_public_key = SM2_CTX.pk_from_sk(&secret_key);
         let mut pubkey = SM2_CTX.serialize_pubkey(&derived_public_key, false);
-        printlnex!("pubkey is  {:?}", pubkey);
+        //printlnex!("pubkey is  {:?}", pubkey);
         if pubkey.len() == 65 {
             pubkey = pubkey[1..].to_vec();
         }

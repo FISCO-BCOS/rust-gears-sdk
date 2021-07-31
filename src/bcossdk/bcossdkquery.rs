@@ -256,18 +256,7 @@ impl BcosSDK {
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
-    ///简单封装下同步的发送交易且获得回执的方法。默认等待1s,这是个非常常用的方法，尤其是用于demo时
-    pub fn sendRawTransactionGetReceipt(
-        &mut self,
-        contract: &ContractABI,
-        to_address: &str,
-        methodname: &str,
-        params: &[String],
-    ) -> Result<JsonValue, KissError> {
-        let response = self.send_raw_transaction(&contract, &to_address, methodname, &params)?;
-        let txhash = response["result"].as_str().unwrap();
-        self.try_getTransactionReceipt(txhash, 3, false)
-    }
+
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#gettransactionreceipt
     pub fn getTransactionReceipt(&mut self, txhash: &str) -> Result<JsonValue, KissError> {
         let groupid = self.config.chain.groupid;

@@ -11,6 +11,7 @@ contracts/contract.toml
 Cargo.lock
 log/
 *.signatures
+*.def
 *.bin
 *.bin-runtime
 *.exe

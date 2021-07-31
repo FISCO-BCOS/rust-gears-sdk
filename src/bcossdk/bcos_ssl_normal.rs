@@ -22,15 +22,56 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::Path;
 
-use openssl::ssl::{
-    SslConnector, SslConnectorBuilder, SslFiletype, SslMethod, SslStream, SslVerifyMode,
-};
+use openssl::ssl::{SslConnector, SslConnectorBuilder, SslFiletype, SslMethod, SslStream, SslVerifyMode, ShutdownResult};
 
 use crate::bcossdk::bcoschannelclient::IBcosChannel;
 use crate::bcossdk::bcosclientconfig::ChannelConfig;
 use crate::bcossdk::bufferqueue::BufferQueue;
 use crate::bcossdk::channelpack::ChannelPack;
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use std::io;
+
+pub trait ISslStreamWrap{
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize>;
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize>;
+    fn shutdown(&mut self)-> Result<ShutdownResult,  openssl::ssl::Error>;
+}
+//啥也不做，知识为了满足结构体初始化时要赋值的需求
+struct EmptySslStreamWrap{
+
+}
+impl ISslStreamWrap for EmptySslStreamWrap{
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        Ok(0 as usize)
+    }
+
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        Ok(0 as usize)
+    }
+
+    fn shutdown(&mut self)-> Result<ShutdownResult,  openssl::ssl::Error> {
+        Ok(ShutdownResult::Sent)
+    }
+}
+
+struct SslStreamWrap{
+    pub ssl_stream: SslStream<TcpStream>,
+}
+impl  ISslStreamWrap for SslStreamWrap{
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        //println!("ISslStreamWrap write {:?}",buf.len());
+        self.ssl_stream.write(buf)
+    }
+
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.ssl_stream.read(buf)
+    }
+
+    fn shutdown(&mut self) -> Result<ShutdownResult, openssl::ssl::Error>{
+        self.ssl_stream.shutdown()
+    }
+}
+
 
 ///ssl 客户端，封装系统SSL的调用，只支持非国密ECDSA。
 /// 要支持国密tls，参见bcos_nativetls_client.rs，这个文件里的实现同时支持gm和ecdsa
@@ -42,7 +83,8 @@ pub struct BcosSSLClient {
 
     pub is_valid: bool,
     pub is_connect: bool,
-    pub ssl_stream: Option<SslStream<TcpStream>>,
+    //pub ssl_stream: Option<SslStream<TcpStream>>,
+    pub  sslstream_wrap:Box<dyn ISslStreamWrap>
 }
 
 impl IBcosChannel for BcosSSLClient {
@@ -50,8 +92,9 @@ impl IBcosChannel for BcosSSLClient {
         if self.is_valid != true {
             return;
         }
-        let stream = self.ssl_stream.take();
-        let res = stream.unwrap().shutdown();
+        //let stream = self.ssl_stream.take();
+        //let res = stream.unwrap().shutdown();
+        let res = self.sslstream_wrap.shutdown();
         self.is_valid = false;
         self.is_connect = false;
     }
@@ -95,7 +138,11 @@ impl IBcosChannel for BcosSSLClient {
                 );
             }
         };
-        self.ssl_stream = Option::from(ssl_stream);
+        //self.ssl_stream = Option::from(ssl_stream);
+        let sslstreamimpl =SslStreamWrap{
+            ssl_stream : ssl_stream
+        };
+        self.sslstream_wrap = Box::from(sslstreamimpl);
         Ok(0)
     }
 
@@ -103,9 +150,11 @@ impl IBcosChannel for BcosSSLClient {
     fn send(&mut self, sendbuff: &Vec<u8>) -> Result<i32, KissError> {
         //take从option里借用出来一个stream实例，用完要还回去。否则下次再调用的时候这个option就是None了
         //看起来线程不安全了。
-        if let Some(mut stream) = self.ssl_stream.take() {
-            let res = stream.write(&sendbuff.as_slice());
-            self.ssl_stream = Option::from(stream);
+        //if let Some(mut stream) = self.ssl_stream.take() {
+        if self.is_connect{
+            //let res = stream.write(&sendbuff.as_slice());
+            //self.ssl_stream = Option::from(stream);
+            let res = self.sslstream_wrap.write(&sendbuff.as_slice());
             printlnex!("send res {:?}", res);
             match res {
                 Ok(s) => return Ok(s as i32),
@@ -122,10 +171,14 @@ impl IBcosChannel for BcosSSLClient {
         printlnex!("recvbuffer size {}", recvbuffer.len());
         //take从option里借用出来一个stream实例，用完要还回去。否则下次再调用的时候这个option就是None了
         //看起来线程不安全了。
-        if let Some(mut stream) = self.ssl_stream.take() {
-            let res = stream.read(recvbuffer.as_mut_slice());
+        //if let Some(mut stream) = self.ssl_stream.take() {
+        if self.is_connect
+        {
+           // let res = stream.read(recvbuffer.as_mut_slice());
+           // self.ssl_stream = Option::from(stream);
+            let res  = self.sslstream_wrap.read(recvbuffer.as_mut_slice());
             printlnex!("recv result {:?}", res);
-            self.ssl_stream = Option::from(stream);
+
             match res {
                 Ok(size) => {
                     return Ok(recvbuffer[0..size].to_vec());
@@ -146,7 +199,8 @@ impl BcosSSLClient {
             is_valid: false,
             is_connect: false,
             channelpackpool: Vec::new(),
-            ssl_stream: Option::from(None),
+            //ssl_stream: Option::from(None),
+            sslstream_wrap:Box::from(EmptySslStreamWrap{})
         }
     }
 
