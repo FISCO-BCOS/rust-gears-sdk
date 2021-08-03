@@ -32,4 +32,5 @@ pub mod liteutils;
 pub mod bcos_ssl_normal;
 pub mod bcoschannelclient;
 pub mod cli_common;
+pub mod bcossdkgroup;
 

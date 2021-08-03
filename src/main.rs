@@ -103,6 +103,9 @@ fn main() {
         "usage"=>{
             console::usage::usage(&cli);
         }
+        "group"=>{
+            let res = sample::grouputils::demo(&cli);
+        }
         _=>{
             let res = console_cmds::handle_cmd(&cli);
             println!("console cmd result : {:?}",res);

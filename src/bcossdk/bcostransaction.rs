@@ -81,6 +81,7 @@ impl BcosTransaction {
         stream.begin_list(listsize);
         self.rlp_append_tx_elements(&mut stream);
         let encodebytes: Vec<u8> = stream.drain();
+        printlnex!("plain transaction encode size {}",encodebytes.len());
         encodebytes
     }
 
@@ -125,7 +126,9 @@ impl BcosTransactionWithSig {
         stream.begin_list(13);
         self.transaction.rlp_append_tx_elements(&mut stream);
         self.rlp_append_signature(&mut stream);
-        stream.drain()
+        let encodebytes = stream.drain();
+        printlnex!("Signed transaction encode size {}",encodebytes.len());
+        encodebytes
     }
 
     pub fn decode_bytes(txbyes: &Vec<u8>) -> Result<BcosTransactionWithSig, DecoderError> {

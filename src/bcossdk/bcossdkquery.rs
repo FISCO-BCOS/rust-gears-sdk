@@ -394,12 +394,7 @@ impl BcosSDK {
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
-    ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#querygroupstatus
-    pub fn queryGroupStatus(&mut self, groupid: u32) -> Result<JsonValue, KissError> {
-        let cmd = "queryGroupStatus";
-        let paramobj = json!([groupid]);
-        self.netclient.rpc_request_sync(cmd, &paramobj)
-    }
+
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getbatchreceiptsbyblocknumberandrange
     /// curl -X POST --data '{"jsonrpc":"2.0","method":"getBatchReceiptsByBlockNumberAndRange","params":[1,"0x1","0","-1",false],"id":1}' http://127.0.0.1:8545 |jq
