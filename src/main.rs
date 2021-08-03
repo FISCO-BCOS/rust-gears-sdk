@@ -104,7 +104,7 @@ fn main() {
             console::usage::usage(&cli);
         }
         "group"=>{
-            let res = sample::grouputils::demo(&cli);
+            let res = sample::groupdemo::demo(&cli);
         }
         _=>{
             let res = console_cmds::handle_cmd(&cli);
