@@ -104,7 +104,7 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
      */
     //let users =vec!("(fra\"nk,27)".to_string(),"(grant,55)".to_string(),"(kent'sz,11)".to_string(),);
     //let strdata = ContractABI::array_to_param(&users);
-    let strdata = "[(fra\"nk,23),(\"gran't55,77)]".to_string();
+    let strdata = "[(frank,23),(grant'55,77)]".to_string();
     println!("strdata {}",strdata);
     let param = vec!(strdata);
     println!("users param {:?}",param);
