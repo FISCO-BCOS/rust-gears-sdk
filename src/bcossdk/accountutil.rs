@@ -22,7 +22,6 @@
 use lazy_static::lazy_static;
 #[allow(unused_imports)]
 use pem::Pem;
-use rustc_hex::ToHex;
 use wedpr_l_crypto_signature_sm2::WedprSm2p256v1;
 use wedpr_l_libsm::sm2::signature::SigCtx;
 use wedpr_l_utils::traits::Signature;
@@ -47,9 +46,9 @@ impl BcosAccount {
     pub fn to_hexdetail(&self) -> String {
         let str = format!(
             "address: {}\nprivkey: {}\npubkey: {}",
-            self.address.to_hex(),
-            self.privkey.to_hex(),
-            self.pubkey.to_hex()
+            hex::encode(&self.address),
+            hex::encode(&self.privkey),
+            hex::encode(&self.pubkey)
         );
         str
     }
@@ -88,6 +87,8 @@ fn address_from_pubkey(pubkey: &Vec<u8>, hashtype: &HashType) -> Vec<u8> {
     let addressbytes = hash[12..].to_vec();
     addressbytes
 }
+
+
 
 pub trait IBcosAccountUtil {
     ///创建随机账户

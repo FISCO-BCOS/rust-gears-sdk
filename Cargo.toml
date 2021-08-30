@@ -12,7 +12,7 @@ license = "MIT"
 # use lib default setting ,target is src/lib.rs
 
 [dependencies]
-rustc-hex="1.0.0"
+#rustc-hex="1.0.0"
 reqwest = { version = "0.11.3", features = ["json","blocking"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
@@ -53,6 +53,7 @@ openssl = "0.10"
 anyhow = "1"
 log = "0.4"
 log4rs = "1.0.0"
+
 [dev-dependencies]
 paste = "1"
 primitive_types07 = { package = "primitive-types", version = "0.7"}

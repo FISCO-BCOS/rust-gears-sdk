@@ -55,6 +55,7 @@ fn main() {
 - 支持解析解析功能：包括交易输入、交易输出、Event Log等ABI数据的拼装和解析。
 - 支持基于pem文件的账户创建和私钥读取。
 - 引用WeDPR的密码库进行HASH，签名, 该密码库支持ECDSA和SM2,3,4
+- 控制台支持Struct参数，数组等复杂数据结构，SDK调用方法参见[src/sample/structdemo.rs](src/sample/structdemo.rs)
 
 
 ## 目录结构：
@@ -192,6 +193,46 @@ cargo run -- usage      bcossdk的操作命令字帮助，建议查看包括 usa
 ```
 
 
+## 控制台输入复杂数据类型概要说明
+
+**数组**
+
+合约数组如uint256[3] nums，那么在rust层面，其参数构造可以是 [1,2,3],同理，字符串数组对应['a','b','c']
+
+在控制台输入时，数组参数需要加上中括号，比如[1, 2, 3]，数组中是字符串或字节类型，加双引号或单引号，例如[“alice”, ”bob”]，注意数组参数中不要有空格；布尔类型为true或者false。
+
+**结构体**
+
+合约结构体如
+```
+    struct User {
+        string name;
+        uint256 age;
+     }
+```
+对应rust的tuple类型，如 ('alice',23)
+
+如果是结构体数组 User[] _users, 则对应tuple数组如[('alice',23),('bob',28)]
+
+在控制台输入时，按以上格式输入即可。举例
+```
+单个结构体参数
+cargo run -- sendtx TestStruct latest addUser ('alice',23)
+
+两个参数，第二个参数是结构体
+cargo run -- sendtx TestStruct latest addbyname alice ('alice',23)
+
+结构体数组参数
+cargo run -- sendtx TestStruct latest addUsers [('alice',23),('bob',28)]
+
+查询，返回的是结构体
+cargo run -- call TestStruct latest getUser alice
+```
+**重要提示:**
+* 输入数据的 \\, "等字符可能会被转义，所以参数应尽量不包含牵涉转义的各种字符，保持简单。
+* 如输入的数据一定要包含转移字符，建议按urlencode,b64等模式先做编码，避免转义问题
+* 或者修改src/bcossdk/liteutils.rs里的split_param方法，修改其转义实现，这个方法在数组参数，结构体参数，数组嵌套结构体参数解析时会被多次调用，
+导致转义次数会不止一次，最终输出的结果可能会不如输入者预期。
 
 ## channel协议中的SSL库使用说明
 

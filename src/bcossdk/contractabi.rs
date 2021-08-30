@@ -14,17 +14,18 @@
 由于其部分实现是私有的，所以在这里参考原代码进行修改
 */
 #![allow(
-    clippy::unreadable_literal,
-    clippy::upper_case_acronyms,
-    dead_code,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    overflowing_literals,
-    unused_imports,
-    unused_variables,
-    unused_assignments
+clippy::unreadable_literal,
+clippy::upper_case_acronyms,
+dead_code,
+non_camel_case_types,
+non_snake_case,
+non_upper_case_globals,
+overflowing_literals,
+unused_imports,
+unused_variables,
+unused_assignments
 )]
+
 use std::collections::HashMap;
 use std::fs::File;
 
@@ -33,12 +34,13 @@ use anyhow::anyhow;
 use ethabi::param_type::Writer;
 use ethabi::{
     param_type::ParamType,
-    token::{LenientTokenizer, StrictTokenizer, Token, Tokenizer},
+    token::{Token},
+    Error as ABIError,
     Bytes, Contract, Event, Function, Hash, Log as ReceiptLog, Param, RawLog,
 };
 use hex_literal::hex;
 use keccak_hash::keccak;
-use rustc_hex::ToHex;
+use hex::ToHex;
 use serde_json::Value as JsonValue;
 
 use crate::bcossdk::commonhash::{CommonHash, HashType};
@@ -46,6 +48,13 @@ use crate::bcossdk::event_utils;
 use std::path::PathBuf;
 use std::str::FromStr;
 use crate::bcossdk::event_utils::EventABIUtils;
+use itertools::Itertools;
+use crate::bcossdk::liteutils::split_param;
+use std::io::Read;
+use crate::bcossdk::fileutils::read_all;
+use crate::bcossdk::abi_parser::ABIParser;
+use crate::bcossdk::abi_tokenizer::{ABILenientTokenizer, ABIStrictTokenizer, ABITokenizer};
+use ethabi::token::StrictTokenizer;
 
 #[derive(Clone, Debug)]
 pub struct ContractABI {
@@ -54,7 +63,8 @@ pub struct ContractABI {
     pub event_hash_map: HashMap<Hash, Event>,
     pub func_selector_map: HashMap<Vec<u8>, Function>,
     pub hashtype: HashType,
-    pub event_abi_utils:EventABIUtils,
+    pub event_abi_utils: EventABIUtils,
+    pub abiparser: ABIParser,
 }
 
 #[derive(Clone, Debug)]
@@ -75,7 +85,8 @@ impl ContractABI {
     }
     ///指定文件加载abi定义，注意hashtype，可指定多种hash算法，一定要和当前的节点或sdk实例一致
     pub fn new(filename: &str, hashtype: &HashType) -> Result<ContractABI, KissError> {
-        printlnex!("try load contract file {}", filename);
+        //printlnex!("try load contract file {}", filename);
+        let abiparser = ABIParser::load(filename)?;
         let contractfile_result = File::open(filename);
         match &contractfile_result {
             Err(e) => {
@@ -88,6 +99,7 @@ impl ContractABI {
             }
             _ => {}
         }
+
         let contractfile = contractfile_result.unwrap();
         let contact_result = Contract::load(contractfile);
         match contact_result {
@@ -103,7 +115,8 @@ impl ContractABI {
             event_hash_map: HashMap::new(),
             func_selector_map: HashMap::new(),
             hashtype: hashtype.clone(),
-            event_abi_utils: EventABIUtils::new(&hashtype)
+            event_abi_utils: EventABIUtils::new(&hashtype),
+            abiparser: abiparser,
         };
         contract.map_event_to_hash();
         contract.map_function_to_selector();
@@ -158,9 +171,15 @@ impl ContractABI {
 
     pub fn map_event_to_hash(&mut self) {
         let contract = &self.contract;
-        for (index, val) in self.contract.events.iter().enumerate() {
+        /*for (index, val) in self.contract.events.iter().enumerate() {
             let event = val.1.get(0).unwrap();
             event.signature();
+            let hash = self.event_abi_utils.event_signature(&event);
+            self.event_hash_map.insert(hash, event.clone());
+            println!("event hash {} ,event {:?}", hex::encode(hash), event);
+        }*/
+
+        for event in self.abiparser.events.as_slice() {
             let hash = self.event_abi_utils.event_signature(&event);
             self.event_hash_map.insert(hash, event.clone());
             //println!("event hash {} ,event {:?}", hex::encode(hash), event);
@@ -280,7 +299,7 @@ impl ContractABI {
             Err(e) => {
                 return kisserr!(
                     KissErrKind::EFormat,
-                    "make tokens from params error {:?}",
+                    "make tokens from params error: {:?}",
                     e
                 );
             }
@@ -302,16 +321,47 @@ impl ContractABI {
         Ok(hex::encode(&txinput))
     }
 
+
+
+/*
+    pub fn tokenize_array_ex(
+        &self,
+        value: &str, param: &ParamType,lenient:bool) -> Result<Token, ABIError> {
+        let mut result: Vec<Token> = vec![];
+        let inputstr = value.trim_start_matches("[");
+        let inputstr = inputstr.trim_end_matches("]");
+
+        let paramstr_array = split_param(inputstr);
+        //println!("paramstr_array {:?}",paramstr_array.len());
+        for item in paramstr_array {
+            let mut token = Token::Bool(false);
+            if lenient == true {
+                println!("tokenzie : {:?}",item );
+                token = ABILenientTokenizer::tokenize(param, item.as_str())?;
+            }else{
+                token = ABIStrictTokenizer::tokenize(param, item.as_str())?;
+            }
+            result.push(token);
+        }
+        Ok(Token::Array(result))
+    }
+*/
     pub fn collect_tokens(
         &self,
         params: &[(ParamType, &str)],
         lenient: bool,
     ) -> anyhow::Result<Vec<Token>> {
+        //println!("collect_tokens {:?}",params);
         params
             .iter()
             .map(|&(ref param, value)| match lenient {
-                true => LenientTokenizer::tokenize(param, value),
-                false => StrictTokenizer::tokenize(param, value),
+                true => {
+                    //println!("collect_tokens param: {:?},value: {}",param,value);
+                     ABILenientTokenizer::tokenize(param, value)
+                }
+                false => {
+                    ABIStrictTokenizer::tokenize(param, value)
+                }
             })
             .collect::<anyhow::Result<_, _>>()
             .map_err(From::from)
@@ -450,7 +500,6 @@ impl ContractABI {
         allstr = format!("{}]", allstr);
         allstr
     }
-
 }
 
 //----------------------------------------------------------------
@@ -473,7 +522,7 @@ pub fn test_parse_log() {
         println!("Element at position {}: {:?}", pos, e);
         println!(
             "event signature(topic) {:?}",
-            e.signature().as_bytes().to_hex()
+            hex::encode(e.signature().as_bytes())
         );
         let rawlog = ethabi::RawLog {
             topics: vec![hex!("afb180742c1292ea5d67c4f6d51283ecb11e49f8389f4539bef82135d689e118").into()],
@@ -500,6 +549,7 @@ pub fn test_parse_log() {
         println!("log is : {:?}", log);
     }
 }
+
 pub fn test_contract() {
     let abi_path = "contracts/HelloWorld.abi";
     let contract = ContractABI::new(abi_path, &HashType::WEDPR_KECCAK);

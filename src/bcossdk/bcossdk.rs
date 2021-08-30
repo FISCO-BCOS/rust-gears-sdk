@@ -20,7 +20,6 @@
 )]
 
 use ethereum_types::U256;
-use rustc_hex::ToHex;
 use serde_json::{json, Value as JsonValue};
 use time::Tm;
 use log::info;
@@ -133,7 +132,7 @@ impl BcosSDK {
         let groupid = self.config.chain.groupid;
         let cmd = "sendRawTransaction";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
-        let hexdata = rawdata.to_hex();
+        let hexdata = hex::encode(rawdata);
         let paramobj = json!([groupid, hexdata]);
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)
@@ -210,7 +209,7 @@ impl BcosSDK {
         params: &[String],
     ) -> Result<JsonValue, KissError> {
         let groupid = self.config.chain.groupid;
-        let from = self.account.address.to_hex();
+        let from = hex::encode(&self.account.address);
         let to = address;
         let res = contract.encode_function_input(method, params, true);
         let rawdata = match res {
@@ -296,7 +295,7 @@ impl BcosSDK {
         let groupid = self.config.chain.groupid;
         let cmd = "sendRawTransaction";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
-        let hexdata = rawdata.to_hex();
+        let hexdata = hex::encode(rawdata);
         let paramobj = json!([groupid, hexdata]);
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)
@@ -327,7 +326,7 @@ impl BcosSDK {
         let groupid = self.config.chain.groupid;
         let cmd = "sendRawTransactionAndGetProof";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
-        let hexdata = rawdata.to_hex();
+        let hexdata = hex::encode(&rawdata);
         let paramobj = json!([groupid, hexdata]);
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)

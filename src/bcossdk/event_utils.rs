@@ -59,14 +59,21 @@ impl EventABIUtils {
             .cloned()
             .collect()
     }
+    pub fn stringfy_eventparam(&self,p:&EventParam)->ParamType
+    {
+        //println!("param type {:?}",p);
+         p.kind.clone()
+    }
     pub fn event_signature(&self,e: &Event) -> Hash {
-        let param_typs: Vec<ParamType> = e.inputs.iter().map(|p| p.kind.clone()).collect();
+        let param_typs: Vec<ParamType> = e.inputs.iter().map(|p|self.stringfy_eventparam(p)).collect();
         let paramsarray: &[ParamType] = param_typs.as_slice();
+        //println!("paramsarray {:?}",paramsarray);
         let types = paramsarray
             .iter()
             .map(Writer::write)
             .collect::<Vec<String>>()
             .join(",");
+        //println!("event_signature name {},types:{},event:{:?} ",e.name,types,e);
         let data: Vec<u8> = From::from(format!("{}({})", e.name, types).as_str());
         let hashbytes = CommonHash::hash(&data, &self.hashtype);
         let hash: Hash = Hash::from_slice(hashbytes.as_slice());

@@ -78,7 +78,7 @@ pub fn demo(cli:&Cli)
     let mut params:Vec<String> = vec!("9999".to_string());
     let data:Vec<String> = vec!("beijing".to_string(),"shenzhen".to_string(),"shanghai".to_string(),"guangzhou".to_string());
     let datastr =ContractABI::array_to_param(&data);
-        println!("datastr :--> {} <---",datastr);
+        println!("datastr :--> {} <---",&datastr);
     params.push(datastr);
     println!("all params :{:?}",params);
     let res = bcossdk.sendRawTransactionGetReceipt(&contract,&to_address,"add",params.as_slice()).unwrap();

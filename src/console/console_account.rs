@@ -13,7 +13,7 @@ use crate::bcossdk::accountutil::{
 };
 use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ClientConfig};
 use crate::bcossdk::kisserror::KissError;
-use rustc_hex::ToHex;
+use hex::ToHex;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -67,7 +67,7 @@ pub fn newaccount(
             fullpath = fullpath.join(format!("{}.pem", n));
         }
         Option::None => {
-            fullpath = fullpath.join(format!("{}.pem", newaccount.address.to_hex()));
+            fullpath = fullpath.join(format!("{}.pem",hex::encode( &newaccount.address)));
         }
     }
     println!("new account save to : {}", fullpath.to_str().unwrap());

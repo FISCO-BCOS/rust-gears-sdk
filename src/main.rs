@@ -82,10 +82,8 @@ fn main() {
 
         }
         "compile"=>{
-
             let res = console_contract::compile(&cli);
             println!("compile contract result : {:?}",res);
-
         }
 
         "demogmsign"=>{
@@ -105,6 +103,9 @@ fn main() {
         }
         "group"=>{
             let res = sample::groupdemo::demo(&cli);
+        }
+        "structdemo"=>{
+            let res = sample::structdemo::demo(&cli);
         }
         _=>{
             let res = console_cmds::handle_cmd(&cli);
