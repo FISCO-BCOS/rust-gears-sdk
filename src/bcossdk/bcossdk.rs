@@ -37,6 +37,8 @@ use crate::bcossdk::fileutils;
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
 use std::process::{Command, Output};
 use std::path::{PathBuf, Path};
+use ethabi::Token;
+
 #[derive()]
 pub struct BcosSDK {
     pub config: ClientConfig,
@@ -211,7 +213,7 @@ impl BcosSDK {
         let groupid = self.config.chain.groupid;
         let from = hex::encode(&self.account.address);
         let to = address;
-        let res = contract.encode_function_input(method, params, true);
+        let res = contract.encode_function_input_to_abi(method, params, true);
         let rawdata = match res {
             Ok(data) => data,
             Err(e) => {
@@ -233,7 +235,7 @@ impl BcosSDK {
         Ok(value)
     }
 
-    //------------------------------------------------
+
     ///引用客户端配置，构建一个未签名的交易
     pub fn make_transaction(
         &self,
@@ -258,6 +260,8 @@ impl BcosSDK {
             hashtype: self.hashtype.clone(), //sdk在这里把hash算法配置传给了transaction
         })
     }
+
+    ///根据配置选择签名算法实现
     pub fn pick_signer(&self) -> &dyn ICommonSigner {
         match self.config.chain.crypto {
             BcosCryptoKind::ECDSA => {
@@ -281,17 +285,20 @@ impl BcosSDK {
         let rawdata = txsig.encode();
         Ok(rawdata)
     }
-
-    pub fn send_raw_transaction(
-        &mut self,
+    ///输入已经解析好的param，直接根据组包，调用合约
+    pub fn send_raw_transaction_withtokenparam(
+                &mut self,
         contract: &ContractABI,
         to_address: &str,
         methodname: &str,
-        params: &[String],
-    ) -> Result<JsonValue, KissError> {
+        params: &[Token],
+    )-> Result<JsonValue, KissError>
+    {
         let block_limit = self.getBlockLimit()?;
-        let txinput = contract.encode_function_input(methodname, params, true)?;
-        let tx = self.make_transaction(to_address, &txinput.as_str(), block_limit);
+        let function = contract.find_function_unwrap(methodname) ?;
+        //println!("function : {:?}",function);
+        let txinput = ContractABI::encode_function_input_to_abi_by_tokens(&function, params, &self.hashtype)?;
+        let tx = self.make_transaction(to_address, &hex::encode(txinput), block_limit);
         let groupid = self.config.chain.groupid;
         let cmd = "sendRawTransaction";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
@@ -300,6 +307,33 @@ impl BcosSDK {
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)
     }
+    ///输入字符串数组类型的param,根据合约ABI解析并组包，调用合约
+    pub fn send_raw_transaction(
+        &mut self,
+        contract: &ContractABI,
+        to_address: &str,
+        methodname: &str,
+        params: &[String],
+    ) -> Result<JsonValue, KissError> {
+        let txinput = contract.convert_function_input_str_to_token(methodname, params, true)?;
+        //println!("txinput tokens len {}, {:?},",txinput.len(),txinput);
+        let value = self.send_raw_transaction_withtokenparam(contract, to_address, methodname, &txinput)?;
+        Ok(value)
+    }
+
+    ///传入的是类型已经按ABI好的token
+    pub fn sendRawTransactionGetReceiptWithTokenParam(
+        &mut self,
+        contract: &ContractABI,
+        to_address: &str,
+        methodname: &str,
+        params: &[Token],
+    ) -> Result<JsonValue, KissError> {
+        let response = self.send_raw_transaction_withtokenparam(&contract, &to_address, methodname, params)?;
+        let txhash = response["result"].as_str().unwrap();
+        self.try_getTransactionReceipt(txhash, 3, false)
+    }
+
     ///简单封装下同步的发送交易且获得回执的方法。默认等待1s,这是个非常常用的方法，尤其是用于demo时
     pub fn sendRawTransactionGetReceipt(
         &mut self,
@@ -309,6 +343,7 @@ impl BcosSDK {
         params: &[String],
     ) -> Result<JsonValue, KissError> {
         let response = self.send_raw_transaction(&contract, &to_address, methodname, &params)?;
+        println!("response {:?}",response);
         let txhash = response["result"].as_str().unwrap();
         self.try_getTransactionReceipt(txhash, 3, false)
     }
@@ -321,7 +356,7 @@ impl BcosSDK {
         params: &[String],
     ) -> Result<JsonValue, KissError> {
         let block_limit = self.getBlockLimit()?;
-        let txinput = contract.encode_function_input(methodname, params, true)?;
+        let txinput = contract.encode_function_input_to_abi(methodname, params, true)?;
         let tx = self.make_transaction(to_address, &txinput.as_str(), block_limit);
         let groupid = self.config.chain.groupid;
         let cmd = "sendRawTransactionAndGetProof";
@@ -333,7 +368,7 @@ impl BcosSDK {
     }
 
     ///编译合约。传入合约名字和配置文件路径
-    /// 因为不需要连接节点，纯本地运行，采用静态方法实现，避免加载各种库，也无需连接网络
+    ///因为不需要连接节点，纯本地运行，采用静态方法实现，避免加载各种库，也无需连接网络
     pub fn compile(contract_name:&str,configfile:&str)->Result<Output,KissError> {
 
         let config = ClientConfig::load(configfile)?;

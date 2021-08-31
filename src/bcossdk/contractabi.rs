@@ -178,7 +178,7 @@ impl ContractABI {
             self.event_hash_map.insert(hash, event.clone());
             println!("event hash {} ,event {:?}", hex::encode(hash), event);
         }*/
-
+        //采用自实现的abiparser解析器里的event方法，eth-abi-12里的event算法对tuple支持不全
         for event in self.abiparser.events.as_slice() {
             let hash = self.event_abi_utils.event_signature(&event);
             self.event_hash_map.insert(hash, event.clone());
@@ -190,13 +190,31 @@ impl ContractABI {
         getresult
     }
 
+    ///传入hexstr的hash，寻找event
     pub fn find_event_by_hashstring(&self, hashstr: String) -> Option<&Event> {
-        let prefixsave = hashstr.trim_start_matches("0x");
-        let key: Hash = prefixsave.parse().unwrap();
+        let prefixsafe = hashstr.trim_start_matches("0x");
+        let key: Hash = prefixsafe.parse().unwrap();
         let getresult = self.event_hash_map.get(&key);
         getresult
     }
 
+    ///和find_function的区别是，包装了一下错误处理，改成KissError
+    pub fn find_function_unwrap(&self, name_or_signature: &str)->Result<Function,KissError>
+    {
+        let function = match self.find_function(name_or_signature) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        return kisserr!(
+                            KissErrKind::EFormat,
+                            "find_function {} {:?}",
+                            name_or_signature,
+                            e
+                        );
+                    }
+                };
+        Ok(function)
+    }
+    //根据方法名或signature（即带有参数的全定义字符串）查找合约方法
     pub fn find_function(&self, name_or_signature: &str) -> anyhow::Result<Function> {
         let contract = &self.contract;
         let params_start = name_or_signature.find('(');
@@ -248,40 +266,55 @@ impl ContractABI {
         //println!("{}",hex::encode(&result));
         Ok(hex::encode(&result))
     }
+    pub fn collect_function_paramtypes(func:&Function) ->Vec<Box::<ParamType>>
+    {
+        func.inputs.iter().map(|p| Box::new(p.kind.clone())).collect()
+    }
 
-    pub fn encode_func_input_tokens(
+
+	pub fn types_check(tokens: &[Token], param_types: &[Box<ParamType>]) -> bool {
+		param_types.len() == tokens.len() && {
+			param_types.iter().zip(tokens).all(|(param_type, token)| token.type_check(param_type))
+		}
+	}
+
+    /*传入的已经是token，直接encode成abi字符串*/
+    pub fn encode_function_input_to_abi_by_tokens(
         func: &Function,
         tokens: &[Token],
         hashtype: &HashType,
     ) -> Result<Bytes, KissError> {
-        let params: Vec<ParamType> = func.inputs.iter().map(|p| p.kind.clone()).collect();
-
-        if !Token::types_check(tokens, &params) {
-            return kisserr!(KissErrKind::EFormat, "types_check");
+        let params: Vec<Box<ParamType>> = ContractABI::collect_function_paramtypes(&func);
+        //println!("encode_func_input_tokens param: {:?}",params);
+        if !ContractABI::types_check(tokens, &params.as_slice()) {
+            return kisserr!(KissErrKind::EFormat, "encode_func_input_tokens types_check error");
         }
         let signed = ContractABI::function_short_signature(func, hashtype).to_vec();
         let encoded = ethabi::encode(tokens);
         Ok(signed.into_iter().chain(encoded.into_iter()).collect())
-    }
 
-    pub fn encode_function_input(
+    }
+    //传入字符串类型的参数列表，编码成abi
+    pub fn encode_function_input_to_abi(
         &self,
         name_or_signature: &str,
         values: &[String],
         lenient: bool,
     ) -> anyhow::Result<String, KissError> {
-        let functionres = self.find_function(name_or_signature);
-        let function = match functionres {
-            Ok(f) => f,
-            Err(e) => {
-                return kisserr!(
-                    KissErrKind::EFormat,
-                    "find_function {} {:?}",
-                    name_or_signature,
-                    e
-                );
-            }
-        };
+        let tokens = self.convert_function_input_str_to_token(name_or_signature,values,lenient)?;
+        let function = self.find_function_unwrap(name_or_signature)?;
+        let res = ContractABI::encode_function_input_to_abi_by_tokens(&function, &tokens, &self.hashtype)?;
+        Ok(hex::encode(&res))
+    }
+
+    //传入的是字符串，转换成token
+    pub fn convert_function_input_str_to_token(&self,
+        name_or_signature: &str,
+        values: &[String],
+        lenient: bool,
+    ) -> anyhow::Result<Vec<Token>, KissError>{
+
+        let function =self.find_function_unwrap(name_or_signature)?;
         // let sig = ContractABI::function_signature_to_4byte_selector(&function).unwrap();
         //let shortsig  = ContractABI::function_short_signature(&function);
         //println!("encode_function_input ,sig is {:?} : {:?}",hex::encode(shortsig),function);
@@ -304,48 +337,10 @@ impl ContractABI {
                 );
             }
         };
-        //println!("encode input tokens:{:?}",tokens);
-        //function.encode_input(&tokens);
-        let res = ContractABI::encode_func_input_tokens(&function, &tokens, &self.hashtype);
-        let txinput = match res {
-            Ok(s) => s,
-            Err(e) => {
-                return kisserr!(
-                    KissErrKind::EFormat,
-                    "abi encode error {} {:?}",
-                    name_or_signature,
-                    e
-                );
-            }
-        };
-        Ok(hex::encode(&txinput))
+        Ok(tokens)
     }
 
 
-
-/*
-    pub fn tokenize_array_ex(
-        &self,
-        value: &str, param: &ParamType,lenient:bool) -> Result<Token, ABIError> {
-        let mut result: Vec<Token> = vec![];
-        let inputstr = value.trim_start_matches("[");
-        let inputstr = inputstr.trim_end_matches("]");
-
-        let paramstr_array = split_param(inputstr);
-        //println!("paramstr_array {:?}",paramstr_array.len());
-        for item in paramstr_array {
-            let mut token = Token::Bool(false);
-            if lenient == true {
-                println!("tokenzie : {:?}",item );
-                token = ABILenientTokenizer::tokenize(param, item.as_str())?;
-            }else{
-                token = ABIStrictTokenizer::tokenize(param, item.as_str())?;
-            }
-            result.push(token);
-        }
-        Ok(Token::Array(result))
-    }
-*/
     pub fn collect_tokens(
         &self,
         params: &[(ParamType, &str)],
@@ -390,6 +385,7 @@ impl ContractABI {
         Ok(tokens)
     }
 
+    ///解码交易的input，从传入的hexstr中可以获得selector来定位function
     pub fn decode_input_for_tx(&self, txinput: &str) -> anyhow::Result<function_input, KissError> {
         let txinput_trim = txinput.trim_start_matches("0x");
         let selectorstr = &txinput_trim[0..8];
@@ -502,11 +498,7 @@ impl ContractABI {
     }
 }
 
-//----------------------------------------------------------------
-pub fn parse_log(log_abi: &str, data: &str) {
-    let abi_path = "contracts/HelloWorld.abi";
-    let contract = ContractABI::new(abi_path, &HashType::WEDPR_KECCAK);
-}
+
 
 pub fn test_parse_log() {
     let abi_path = "contracts/HelloWorld.abi";
@@ -565,7 +557,7 @@ pub fn test_contract() {
     let params: [String; 1] = [String::from("12347890abc")];
     let hellores = contract
         .unwrap()
-        .encode_function_input("set", &params, false)
+        .encode_function_input_to_abi("set", &params, false)
         .ok();
     println!("contract  set rawdata :{}", hellores.unwrap().as_str());
     test_parse_log();

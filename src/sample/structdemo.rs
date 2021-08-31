@@ -22,6 +22,8 @@ use crate::bcossdk::bcossdkquery::json_hextoint;
 use crate::bcossdk::cli_common::{Cli};
 use crate::console::console_utils::display_transaction_receipt;
 use fisco_bcos_rust_gears_sdk::bcossdk::liteutils;
+use ethabi::{ParamType, Token};
+use fisco_bcos_rust_gears_sdk::bcossdk::abi_tokenizer::{ABILenientTokenizer, ABITokenizer};
 
 pub fn demo_deploy(bcossdk: &mut BcosSDK, contract:&ContractABI) -> Result<String,KissError>
 {
@@ -104,13 +106,44 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
      */
     //let users =vec!("(fra\"nk,27)".to_string(),"(grant,55)".to_string(),"(kent'sz,11)".to_string(),);
     //let strdata = ContractABI::array_to_param(&users);
-    let strdata = "[(frank,23),(grant'55,77)]".to_string();
+    let strdata = "[(frank,23),(grant55,77)]".to_string();
     println!("strdata {}",strdata);
     let param = vec!(strdata);
     println!("users param {:?}",param);
-    let txres = bcossdk.sendRawTransactionGetReceipt(&contract,address.as_str(),"addUsers",param.as_slice());
+    let txres = bcossdk.sendRawTransactionGetReceipt(&contract,address.as_str(),"addUsers",param.as_slice())?;
     //println!("send tx result {}",&txres.unwrap().to_string());
-    display_transaction_receipt(&txres.unwrap(),&Option::from(&contract),&bcossdk.config);
+    display_transaction_receipt(&txres,&Option::from(&contract),&bcossdk.config);
+
+    println!("\n-----------------addUser with param tokens--------------------------\n");
+    /*演示先将参数解析为token，直接传入去调用合约
+    这种方式适合对合约的接口非常熟悉，可以自行拼装参数定义的使用者
+    且参数里有特殊字符，不适合直接传字符串进行解析时，
+    借助ContractABI, ABILenientTokenizer等工具精细化控制参数的解析。
+    */
+    let user_param_type = vec!(Box::new(ParamType::String), Box::new(ParamType::Uint(256)));
+
+    let user_in_str = vec!("pet\"288".to_string(), "314".to_string());
+    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &user_param_type).unwrap();
+    let tupletoken = Token::Tuple(user_in_token);
+    let result = bcossdk.sendRawTransactionGetReceiptWithTokenParam(&contract, address.as_str(), "addUser", &[tupletoken]);
+    display_transaction_receipt(&result.unwrap(),&Option::from(&contract),&bcossdk.config);
+
+
+    println!("\n-----------------addUsers (multi) with param tokens--------------------------\n");
+    let v = vec!(Box::new(ParamType::String),Box::new(ParamType::Uint(256)));
+    let user_in_str = vec!("rude988".to_string(), "3314".to_string());
+    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &v).unwrap();
+    let tupletoken = Token::Tuple(user_in_token);
+    let mut users :Vec<Token> =vec!();
+    users.push(tupletoken);
+    let user_in_str  = vec!("queen354".to_string(),"618".to_string());
+    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &v).unwrap();
+    let tupletoken = Token::Tuple(user_in_token);
+    users.push(tupletoken);
+    let arraytoken = Token::Array(users);
+
+    let result = bcossdk.sendRawTransactionGetReceiptWithTokenParam(&contract, address.as_str(), "addUsers", &[arraytoken]);
+    display_transaction_receipt(&result.unwrap(),&Option::from(&contract),&bcossdk.config);
 
 
     Ok(())
