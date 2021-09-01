@@ -121,27 +121,35 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
     且参数里有特殊字符，不适合直接传字符串进行解析时，可以使用这种编程模式
     复杂结构很绕，应先熟读相关代码，原则上应保持合约接口尽量简单，最多到数组和结构体，不要搞嵌套
     */
+    //按abi构造tuple的字段类型列表
     let user_param_type = vec!(Box::new(ParamType::String), Box::new(ParamType::Uint(256)));
-
+    //这是数据,纯字符串数组，里面包含了特殊字符，确保特殊字符可以上链
     let user_in_str = vec!("pet\"288".to_string(), "314".to_string());
+    //结合数据和类型，编码成token数组
     let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &user_param_type).unwrap();
-    let tupletoken = Token::Tuple(user_in_token);
+    let tupletoken = Token::Tuple(user_in_token); //将多个字段打入tuple token对象
     let result = bcossdk.sendRawTransactionGetReceiptWithTokenParam(&contract, address.as_str(), "addUser", &[tupletoken]);
     display_transaction_receipt(&result.unwrap(),&Option::from(&contract),&bcossdk.config);
 
 
     println!("\n-----------------addUsers (multi) with param tokens--------------------------\n");
-    let v = vec!(Box::new(ParamType::String),Box::new(ParamType::Uint(256)));
-    let user_in_str = vec!("rude988".to_string(), "3314".to_string());
-    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &v).unwrap();
-    let tupletoken = Token::Tuple(user_in_token);
+    //按abi构造tuple的字段类型列表
+    let user_param_type = vec!(Box::new(ParamType::String), Box::new(ParamType::Uint(256)));
+    //addusers的第一个参数是user数组
     let mut users :Vec<Token> =vec!();
-    users.push(tupletoken);
+
+    //这是数据,纯字符串数组
+    let user_in_str = vec!("rude988".to_string(), "3314".to_string());
+    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &user_param_type).unwrap();
+    let tupletoken = Token::Tuple(user_in_token); //将多个字段打入tuple token对象
+    users.push(tupletoken); //增加第一个user
+
+    //第二个user的数据，纯字符串数组
     let user_in_str  = vec!("queen354".to_string(),"618".to_string());
-    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &v).unwrap();
-    let tupletoken = Token::Tuple(user_in_token);
-    users.push(tupletoken);
-    let arraytoken = Token::Array(users);
+    let user_in_token = ABILenientTokenizer::tokenize_struct_by_str_array(&user_in_str, &user_param_type).unwrap();
+    let tupletoken = Token::Tuple(user_in_token);//将多个字段打入tuple token
+    users.push(tupletoken); //增加第二个user
+    let arraytoken = Token::Array(users);  //将数组打入array token对象
 
     let result = bcossdk.sendRawTransactionGetReceiptWithTokenParam(&contract, address.as_str(), "addUsers", &[arraytoken]);
     display_transaction_receipt(&result.unwrap(),&Option::from(&contract),&bcossdk.config);
