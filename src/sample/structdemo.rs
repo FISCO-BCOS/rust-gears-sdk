@@ -116,9 +116,10 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
 
     println!("\n-----------------addUser with param tokens--------------------------\n");
     /*演示先将参数解析为token，直接传入去调用合约
-    这种方式适合对合约的接口非常熟悉，可以自行拼装参数定义的使用者
-    且参数里有特殊字符，不适合直接传字符串进行解析时，
     借助ContractABI, ABILenientTokenizer等工具精细化控制参数的解析。
+    这种方式适合对合约的接口非常熟悉，可以自行拼装参数定义的使用者
+    且参数里有特殊字符，不适合直接传字符串进行解析时，可以使用这种编程模式
+    复杂结构很绕，应先熟读相关代码，原则上应保持合约接口尽量简单，最多到数组和结构体，不要搞嵌套
     */
     let user_param_type = vec!(Box::new(ParamType::String), Box::new(ParamType::Uint(256)));
 
