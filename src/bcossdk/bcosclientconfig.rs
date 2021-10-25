@@ -50,6 +50,9 @@ pub struct ChainConfig {
     pub accountpem: String,
     pub protocol: BcosClientProtocol,
 }
+//unsafe impl Send for ChainConfig{}
+//unsafe impl Sync for ChainConfig{}
+
 impl ChainConfig {
     pub fn default() -> Self {
         ChainConfig {
@@ -67,6 +70,14 @@ pub struct RpcConfig {
     pub url: String,
     pub timeout: u32, //in sec
 }
+
+unsafe impl  Send for RpcConfig {
+
+}
+unsafe impl  Sync for RpcConfig {
+
+}
+
 impl RpcConfig {
     pub fn default() -> Self {
         RpcConfig {
@@ -94,6 +105,13 @@ pub struct ChannelConfig {
     pub gmensdkcert: String,
     pub gmensdkkey: String,
 }
+unsafe impl  Send for ChannelConfig {
+
+}
+unsafe impl  Sync for ChannelConfig {
+
+}
+
 impl ChannelConfig {
     pub fn default() -> Self {
         ChannelConfig {
@@ -121,6 +139,12 @@ pub struct ContractConfig {
     pub solc :String, //solc编译器
     pub solcgm :String, //solc国密版本编译器
 }
+unsafe impl  Sync for ContractConfig {
+
+}
+unsafe impl  Send for ContractConfig {
+
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ClientConfig {
@@ -130,6 +154,8 @@ pub struct ClientConfig {
     pub channel: ChannelConfig,
     pub configfile: Option<String>,
 }
+//unsafe impl Send for ClientConfig{}
+//unsafe impl Sync for ClientConfig{}
 
 impl ClientConfig {
     pub fn load(config_file: &str) -> Result<ClientConfig, KissError> {

@@ -24,7 +24,7 @@ use std::path::Path;
 
 use openssl::ssl::{SslConnector, SslConnectorBuilder, SslFiletype, SslMethod, SslStream, SslVerifyMode, ShutdownResult};
 
-use crate::bcossdk::bcoschannelclient::IBcosChannel;
+use crate::bcossdk::bcos_channel_client::IBcosChannel;
 use crate::bcossdk::bcosclientconfig::ChannelConfig;
 use crate::bcossdk::bufferqueue::BufferQueue;
 use crate::bcossdk::channelpack::ChannelPack;
@@ -60,11 +60,44 @@ struct SslStreamWrap{
 impl  ISslStreamWrap for SslStreamWrap{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         //println!("ISslStreamWrap write {:?}",buf.len());
-        self.ssl_stream.write(buf)
+        let res = self.ssl_stream.write(buf);
+        match res {
+            Ok(t)=>{return Ok(t)},
+            Err(e)=>{
+                let raw_code = e.raw_os_error().unwrap();
+                //println!("SslStream send return {:?},",raw_code);
+                match raw_code{
+                    10035=>{
+                        //10035表示would block
+                        return Ok(0);
+                    }
+                    __=>{return Err(e)  }
+                }
+
+            }
+        }
+
     }
 
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.ssl_stream.read(buf)
+        //println!("SslStreamWrap recv");
+        let res = self.ssl_stream.read(buf);
+        //println!("SslStreamWrap recv {:?}",res);
+        match res {
+            Ok(t) => { return Ok(t) },
+            Err(e) => {
+                let raw_code = e.raw_os_error().unwrap();
+                //println!("SslStream read return {:?},", raw_code);
+                match raw_code {
+                    10035 => {
+                         //10035表示would block
+                          return Ok(0);
+                    }
+                    __ => { return Err(e) }
+                }
+            }
+        }
+
     }
 
     fn shutdown(&mut self) -> Result<ShutdownResult, openssl::ssl::Error>{
@@ -84,10 +117,11 @@ pub struct BcosSSLClient {
     pub is_valid: bool,
     pub is_connect: bool,
     //pub ssl_stream: Option<SslStream<TcpStream>>,
-    pub  sslstream_wrap:Box<dyn ISslStreamWrap>
+    pub  sslstream_wrap:Box<dyn ISslStreamWrap+Send+Sync>
 }
-
-impl IBcosChannel for BcosSSLClient {
+//unsafe impl Send for  BcosSSLClient{}
+//unsafe impl Sync for  BcosSSLClient{}
+impl IBcosChannel  for BcosSSLClient {
     fn finish(&mut self) {
         if self.is_valid != true {
             return;
@@ -115,16 +149,18 @@ impl IBcosChannel for BcosSSLClient {
         let tcp_stream =
             TcpStream::connect(format!("{}:{}", self.config.ip.as_str(), self.config.port))
                 .unwrap();
+        //let res = tcp_stream.set_nonblocking(true);
         let mut ssl_stream = match SslStream::new(ssl, tcp_stream) {
             Ok(s) => s,
             Err(e) => {
                 return kisserr!(
                     KissErrKind::ENetwork,
-                    "SslStream create from TcpStream error {:?}",
+                    "SslStream new from TcpStream error {:?}",
                     e
                 );
             }
         };
+
         //ssl 握手连接
         let res = ssl_stream.connect();
         printlnex!("connect result {:?}", &res);
@@ -133,21 +169,27 @@ impl IBcosChannel for BcosSSLClient {
             Err(e) => {
                 return kisserr!(
                     KissErrKind::ENetwork,
-                    "SslStream create from TcpStream error {:?}",
+                    "SslStream connect error {:?}",
                     e
                 );
+                //println!("connect error code :{:?}",e.code());
             }
         };
+
+        //sslstream的connect倒不很需要异步，只是connect一下，在connect后再设置异步
+        // ps，sslstream设置为异步后，返回的错误码可能send和read搞混了
+        let nio_res = ssl_stream.get_ref().set_nonblocking(true);
         //self.ssl_stream = Option::from(ssl_stream);
         let sslstreamimpl =SslStreamWrap{
             ssl_stream : ssl_stream
         };
         self.sslstream_wrap = Box::from(sslstreamimpl);
+        //tcp_stream.set_nonblocking(true);
         Ok(0)
     }
 
     ///异步发送数据，如果未发送任何字节，返回0，可以重试发送
-    fn send(&mut self, sendbuff: &Vec<u8>) -> Result<i32, KissError> {
+    fn send( &mut self, sendbuff: &Vec<u8>) -> Result<i32, KissError> {
         //take从option里借用出来一个stream实例，用完要还回去。否则下次再调用的时候这个option就是None了
         //看起来线程不安全了。
         //if let Some(mut stream) = self.ssl_stream.take() {
@@ -158,7 +200,10 @@ impl IBcosChannel for BcosSSLClient {
             printlnex!("send res {:?}", res);
             match res {
                 Ok(s) => return Ok(s as i32),
-                Err(e) => return kisserr!(KissErrKind::ENetwork, "ssl send fail {:?}", e),
+                Err(e) => {
+
+                    return kisserr!(KissErrKind::ENetwork, "ssl send fail {:?}", e)
+                },
             }
         }
         return kisserr!(KissErrKind::ENetwork, "");

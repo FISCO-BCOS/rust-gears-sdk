@@ -26,12 +26,13 @@ use std::env;
 use libc::c_void;
 use libloading::{Library, Symbol};
 
-use crate::bcossdk::bcoschannelclient::IBcosChannel;
+use crate::bcossdk::bcos_channel_client::IBcosChannel;
 use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
 use crate::bcossdk::bufferqueue::BufferQueue;
 use crate::bcossdk::channelpack::ChannelPack;
 use crate::bcossdk::commonutil::is_windows;
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use std::sync::{Arc, Mutex};
 
 //C native api 类型定义
 type FN_SSOCK_CREATE = fn() -> *mut ::libc::c_void;
@@ -49,6 +50,13 @@ type FN_SSOCK_SET_ECHO_MODE = fn(*mut ::libc::c_void, i32);
 type FUNC_SSOCK_TRY_CONNECT = fn(*mut c_void, host: *const u8, port: i32) -> i32;
 type FUNC_SSOCK_SEND = fn(*mut c_void, buffer: *const u8, len: i32) -> i32;
 type FUNC_SSOCK_RECV = fn(*mut c_void, buffer: *mut u8, size: i32) -> i32;
+type SSOCKLIB_TYPE = Arc<Mutex<*mut libc::c_void>>;
+
+
+#[macro_export]
+macro_rules! mac_pssock {
+    ($x:expr)=>{*$x.ssocklib.as_ref().unwrap().pssock.as_ref().lock().unwrap()};
+}
 
 pub fn lib_usage_msg() -> String {
     let msg: String = r###"
@@ -71,9 +79,13 @@ fn rzero(s: &String) -> String {
 }
 #[derive(Debug)]
 pub struct SSockNativeLib {
-    pub pssock: *mut libc::c_void,
+    pub pssock: SSOCKLIB_TYPE,  //Arc<*mut libc::c_void>,
     pub nativelib: Library,
 }
+
+//unsafe impl Send for SSockNativeLib {}
+//unsafe impl Sync for SSockNativeLib {}
+
 impl SSockNativeLib {
     pub fn close(&mut self) {}
 }
@@ -89,6 +101,10 @@ pub struct BcosNativeTlsClient {
     pub channelpackpool: Vec<ChannelPack>, //一个池子，存没有被处理的channelpack，在推送等流程用到
 }
 
+
+unsafe impl Send for  BcosNativeTlsClient{}
+unsafe impl Sync for  BcosNativeTlsClient{}
+
 impl IBcosChannel for BcosNativeTlsClient {
     ///tls连接，会发起握手
     fn connect(&mut self) -> Result<i32, KissError> {
@@ -101,7 +117,7 @@ impl IBcosChannel for BcosNativeTlsClient {
                 .get(b"ssock_try_connect")
                 .unwrap();
             let r = func_connect(
-                self.ssocklib.as_ref().unwrap().pssock,
+                mac_pssock!(self),
                 rzero(&self.config.ip).as_ptr(),
                 self.config.port as i32,
             );
@@ -123,7 +139,9 @@ impl IBcosChannel for BcosNativeTlsClient {
                 .get(b"ssock_send")
                 .unwrap();
             let r = func_send(
-                self.ssocklib.as_ref().unwrap().pssock,
+                //self.ssocklib.as_ref().unwrap().pssock,
+                //mac_pssock!(self),
+                mac_pssock!(self),
                 sendbuff.as_ptr(),
                 sendbuff.len() as i32,
             );
@@ -149,7 +167,10 @@ impl IBcosChannel for BcosNativeTlsClient {
             let mut recvbuffer: Vec<u8> = Vec::with_capacity(size);
             let pdst = recvbuffer.as_mut_ptr();
             //let dstlen = 1024;
-            let r = func_recv(self.ssocklib.as_ref().unwrap().pssock, pdst, size as i32);
+            let r = func_recv(
+                                //self.ssocklib.as_ref().unwrap().pssock,
+                              mac_pssock!(self),
+                                pdst, size as i32);
             //println!("recv result {:?}", r);
             if r >= 0 {
                 //println!("recv size :{}",r);
@@ -194,7 +215,7 @@ impl BcosNativeTlsClient {
             let func_create: Symbol<FN_SSOCK_CREATE> = (&nativelib).get(b"ssock_create").unwrap();
             let pssock_ptr = func_create();
             let lib = SSockNativeLib {
-                pssock: pssock_ptr,
+                pssock: Arc::new(Mutex::new(pssock_ptr)),
                 nativelib: nativelib,
             };
 
@@ -284,7 +305,7 @@ impl BcosNativeTlsClient {
                 .nativelib
                 .get(b"ssock_release")
                 .unwrap();
-            func_release(self.ssocklib.as_ref().unwrap().pssock);
+            func_release(mac_pssock!(self));
             //self.ssocklib.as_ref().unwrap().close();
             //self.ssocklib.as_ref().unwrap().pssock = ptr::null_mut();
             //self.ssocklib.unwrap().nativelib.close();
@@ -306,7 +327,7 @@ impl BcosNativeTlsClient {
                 .nativelib
                 .get(b"ssock_set_echo_mode")
                 .unwrap();
-            func_set(self.ssocklib.as_ref().unwrap().pssock, mode);
+            func_set(mac_pssock!(self), mode);
             //println!("set echo mode:{:?},mode {}", self.ssocklib.as_ref().unwrap().pssock,mode);
         }
     }
@@ -327,7 +348,7 @@ impl BcosNativeTlsClient {
             match self.config.tlskind {
                 BcosCryptoKind::ECDSA => {
                     r = func_init(
-                        self.ssocklib.as_ref().unwrap().pssock,
+                        mac_pssock!(self),
                         rzero(&self.config.cacert).as_ptr(),
                         rzero(&self.config.sdkcert).as_ptr(),
                         rzero(&self.config.sdkkey).as_ptr(),
@@ -337,7 +358,7 @@ impl BcosNativeTlsClient {
                 }
                 BcosCryptoKind::GM => {
                     r = func_init(
-                        self.ssocklib.as_ref().unwrap().pssock,
+                        mac_pssock!(self),
                         rzero(&self.config.gmcacert).as_ptr(),
                         rzero(&self.config.gmsdkcert).as_ptr(),
                         rzero(&self.config.gmsdkkey).as_ptr(),

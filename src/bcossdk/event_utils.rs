@@ -47,11 +47,11 @@ impl EventABIUtils {
         }
     }
 
-    fn params_names(&self,event: &Event) -> Vec<String> {
+    pub fn params_names(&self,event: &Event) -> Vec<String> {
         event.inputs.iter().map(|p| p.name.clone()).collect()
     }
 
-    fn indexed_params(&self,event: &Event, indexed: bool) -> Vec<EventParam> {
+    pub fn indexed_params(&self,event: &Event, indexed: bool) -> Vec<EventParam> {
         event
             .inputs
             .iter()
@@ -59,6 +59,47 @@ impl EventABIUtils {
             .cloned()
             .collect()
     }
+
+    ///根据类型，计算indexed值
+    pub fn topic_by_indexed_params(&self,ptype:&ParamType,v:&str)->String{
+        let mut topicres:String = "".to_string();
+        match ptype {
+            ParamType::String=>{
+                //算hash并补全
+                topicres = hex::encode(CommonHash::hash(&Vec::from(v),&self.hashtype));
+
+            },
+            ParamType::Uint(_)=>{
+                //补全到64位，类似0x0000000000000000000000000000000000000000000000000000000000000005
+                topicres = v.to_string();
+            },
+            ParamType::Address=>{
+                //类似0x92499f53c718ea898e94485626a150e29efffa8e这样的地址，去掉0x，补字符的0到32位
+                topicres = v.trim_start_matches("0x").to_string();
+            },
+            ParamType::Bool=>{
+                let lowv  =v.to_ascii_lowercase();
+                match lowv.as_str() {
+                    "true"=>{topicres = "1".to_string()},
+                    _=>{topicres = "0".to_string()}
+                }
+            },
+            ParamType::Bytes=>{
+                topicres = v.trim_start_matches("0x").to_string();
+            }
+            _=>{
+                topicres = v.trim_start_matches("0x").to_string();
+            }
+        }
+        while topicres.len()<64{
+            topicres = format!("0{}",topicres);
+        }
+        topicres = format!("0x{}",topicres);
+
+        topicres
+
+    }
+
     pub fn stringfy_eventparam(&self,p:&EventParam)->ParamType
     {
         //println!("param type {:?}",p);

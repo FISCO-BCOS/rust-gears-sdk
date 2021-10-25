@@ -1,3 +1,4 @@
+#![feature(in_band_lifetimes)]
 #![allow(
     clippy::unreadable_literal,
     clippy::upper_case_acronyms,

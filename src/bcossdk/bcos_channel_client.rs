@@ -1,21 +1,24 @@
 #![allow(
-    clippy::unreadable_literal,
-    clippy::upper_case_acronyms,
-    dead_code,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    overflowing_literals,
-    unused_variables,
-    unused_assignments
+clippy::unreadable_literal,
+clippy::upper_case_acronyms,
+dead_code,
+non_camel_case_types,
+non_snake_case,
+non_upper_case_globals,
+overflowing_literals,
+unused_variables,
+unused_assignments
 )]
+
 use crate::bcossdk::bcos_ssl_native::BcosNativeTlsClient;
 use crate::bcossdk::bcos_ssl_normal::BcosSSLClient;
 use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
 use crate::bcossdk::bufferqueue::BufferQueue;
-use crate::bcossdk::channelpack::{make_channel_pack, ChannelPack};
+use crate::bcossdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
+
 
 ///用接口抽象国密和非国密SSL底层实现，
 /// 底层只关注对SSL或GMSSL的API调用，暴露几个简单的接口
@@ -26,59 +29,71 @@ pub trait IBcosChannel {
     fn finish(&mut self);
 }
 
+
+type IBcosChannelImpl = Arc<Mutex<dyn IBcosChannel + Send + Sync>>;
+
 /// 对channel协议的组装和解析，同步异步调用是共通的，封装在BcosChannelClient
 pub struct BcosChannelClient {
-    pub channelimpl: Box<dyn IBcosChannel>,
+    pub channelimpl: IBcosChannelImpl,
     pub config: ChannelConfig,
     pub bufferqueue: BufferQueue,
     pub channelpackpool: Vec<ChannelPack>, //一个池子，存没有被处理的channelpack，在推送等流程用到
 }
 
+//unsafe impl Send for BcosChannelClient {}
+//unsafe impl Sync for BcosChannelClient {}
+
 impl IBcosChannel for BcosChannelClient {
     fn connect(&mut self) -> Result<i32, KissError> {
-        self.channelimpl.connect()
+        self.channelimpl.lock().unwrap().connect()
+        //self.channelimpl.connect()
     }
 
     fn send(&mut self, sendbuff: &Vec<u8>) -> Result<i32, KissError> {
-        self.channelimpl.send(sendbuff)
+        self.channelimpl.lock().unwrap().send(sendbuff)
+        //self.channelimpl.send(sendbuff)
     }
 
     fn recv(&mut self) -> Result<Vec<u8>, KissError> {
-        self.channelimpl.recv()
+        //println!("recv");
+        let res = self.channelimpl.lock().unwrap().recv();
+        //println!("recv done");
+        res
+
     }
 
     fn finish(&mut self) {
-        self.channelimpl.finish()
+        self.channelimpl.lock().unwrap().finish()
     }
 }
 
 impl BcosChannelClient {
-    pub fn default(config:&ChannelConfig)->BcosChannelClient{
-        let channelimpl: Box<dyn IBcosChannel>;
+    pub fn default(config: &ChannelConfig) -> BcosChannelClient {
         let ssl_client = BcosSSLClient::default(&config);
-        let channelimpl: Box<dyn IBcosChannel> = Box::from(ssl_client);
-        BcosChannelClient{
+        let channelimpl: IBcosChannelImpl = Arc::new(Mutex::new(ssl_client));
+         //let channelimpl: IBcosChannelImpl = Arc::new(ssl_client);
+        BcosChannelClient {
             config: config.clone(),
             bufferqueue: Default::default(),
             channelimpl: channelimpl,
             channelpackpool: vec![],
         }
-
-
     }
     pub fn new(config: &ChannelConfig) -> Result<BcosChannelClient, KissError> {
-        let channelimpl: Box<dyn IBcosChannel>;
+        let channelimpl: IBcosChannelImpl;
+        println!("config.tlskind {:?}",&config);
         match config.tlskind {
             BcosCryptoKind::ECDSA => {
                 let mut ssl_client = BcosSSLClient::default(&config);
                 ssl_client.build()?;
-                channelimpl = Box::from(ssl_client)
+                channelimpl = Arc::new(Mutex::new(ssl_client))
+                //channelimpl = Arc::new(ssl_client)
             }
             BcosCryptoKind::GM => {
-
                 let mut tls_client = BcosNativeTlsClient::default(&config);
                 tls_client.build()?;
-                channelimpl = Box::from(tls_client);
+                channelimpl = Arc::new(Mutex::new(tls_client));
+                //channelimpl = Arc::new(tls_client)
             }
         }
 
@@ -93,7 +108,7 @@ impl BcosChannelClient {
 
     ///尝试最多5次异步发送
     pub fn try_send(&mut self, outbuffer: &Vec<u8>) -> Result<i32, KissError> {
-        let mut i:u32 = 0;
+        let mut i: u32 = 0;
         while i < 5 {
             let res = self.send(outbuffer)?;
             if res > 0 {
@@ -110,6 +125,7 @@ impl BcosChannelClient {
         let start = time::now();
         while time::now() - start < chrono::Duration::seconds(self.config.timeout as i64) {
             let res = self.recv()?;
+            //println!(">> try recv {}", res.len());
             if res.len() > 0 {
                 return Ok(res);
             }
@@ -121,7 +137,7 @@ impl BcosChannelClient {
 
     ///传入json 字符串，打入channelpack发送出去，同步等待read，然后返回从channelpack解析好的value
     pub fn request_sync(&mut self, reqtext: &str) -> Result<String, KissError> {
-        let outpack = make_channel_pack(reqtext).unwrap();
+        let outpack = make_channel_pack(CHANNEL_PACK_TYPE::RPC, reqtext).unwrap();
         let returnpack = self.request_channelpack_sync(&outpack)?;
         let res = String::from_utf8(returnpack.data);
         match res {
@@ -184,14 +200,60 @@ impl BcosChannelClient {
         }
     }
 
-    ///这个方法主要是保证首先数据能发送出去（重试几次），然后从网络读入数据，直到得到发送的pack所对应的type和seq的回包
-    pub fn request_channelpack_sync(
-        &mut self,
-        outpack: &ChannelPack,
-    ) -> Result<ChannelPack, KissError> {
-        let outbuffer = outpack.pack();
-        printlnex!("chanel buffer length {} ", outbuffer.len());
-        self.try_send(&outbuffer)?;
+    pub fn pop_queue_to_packet(queue: &mut BufferQueue) -> Result<Vec<ChannelPack>, KissError>
+    {
+        let mut vecres: Vec<ChannelPack> = vec!();
+      // println!("before peek, queue size : {}",&self.bufferqueue.queue.len());
+        if queue.queue.len() <= 42 {
+            return Ok(vecres);
+        }
+        let mut k = 0;
+       loop
+        {
+            //println!("k = {}",k);
+            if k > 50 {
+                break;
+            }
+            k += 1;
+            let packres = ChannelPack::unpack(&queue.queue);
+            match packres {
+                Ok(pack) => {
+                    //println!(">>>> get pack type: 0x{:02X},seq: {}",pack.packtype,pack.seq);
+                    //从缓冲区中去掉已经解码的部分
+                    queue.cut(pack.length);
+                    vecres.push(pack);
+                }
+                Err(e) => {
+                    //从缓冲区中解码失败，通常原因是字节不够了，终止
+                    //println!("no more data");
+                    break;
+                }
+            }
+        }
+        Ok(vecres)
+    }
+    pub fn read_packets(&mut self) -> Result<Vec<ChannelPack>, KissError>
+    {
+        let mut i = 0;
+        let mut vecres: Vec<ChannelPack> = vec!();
+        //println!("try recv");
+        while i < 1 {
+            //println!("try recv-->");
+            let mut res = self.recv()?;
+            //println!("try recv res {:?}", res.len());
+            if res.len() == 0 {
+                break;
+            }
+            //读到的所有的数据先加入buffer
+            self.bufferqueue.append(&mut res);
+            vecres = BcosChannelClient::pop_queue_to_packet(&mut self.bufferqueue)?;
+            i += 1
+        }
+        Ok(vecres)
+    }
+
+    pub fn read_to_match(&mut self, outpack: &ChannelPack) -> Result<ChannelPack, KissError>
+    {
         let mut i = 0;
         while i < 50 {
             let mut res = self.try_recv()?;
@@ -210,7 +272,16 @@ impl BcosChannelClient {
             }
             i += 1;
         }
-        //没有获得任何数据
         return kisserr!(KissErrKind::EAgain, "no data return");
+    }
+    ///这个方法主要是保证首先数据能发送出去（重试几次），然后从网络读入数据，直到得到发送的pack所对应的type和seq的回包
+    pub fn request_channelpack_sync(
+        &mut self,
+        outpack: &ChannelPack,
+    ) -> Result<ChannelPack, KissError> {
+        let outbuffer = outpack.pack();
+        printlnex!("chanel buffer length {} ", outbuffer.len());
+        self.try_send(&outbuffer)?;
+        self.read_to_match(&outpack)
     }
 }

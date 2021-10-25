@@ -40,7 +40,8 @@ pub struct BcosAccount {
     pub pubkey: Vec<u8>,
     pub address: Vec<u8>,
 }
-
+//unsafe impl Send for BcosAccount{}
+//unsafe impl Sync for BcosAccount{}
 impl BcosAccount {
     ///将Account转成hex字符格式
     pub fn to_hexdetail(&self) -> String {

@@ -52,6 +52,8 @@ pub struct BcosSDK {
     pub updateblocknum_tick: Tm,
     pub lastblocknum: u32,
 }
+//unsafe impl Send for BcosSDK{}
+//unsafe impl Sync for BcosSDK{}
 
 impl BcosSDK {
     pub fn to_summary(&self) -> String {

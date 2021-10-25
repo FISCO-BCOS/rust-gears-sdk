@@ -170,7 +170,8 @@ pub struct CommonSignerWeDPR_Secp256 {
     pub account: BcosAccount,
     pub signer: WedprSecp256k1Recover,
 }
-
+//unsafe impl Send for CommonSignerWeDPR_Secp256{}
+//unsafe impl Sync for CommonSignerWeDPR_Secp256{}
 impl ICommonSigner for CommonSignerWeDPR_Secp256 {
     fn sign(&self, data: Vec<u8>) -> Result<CommonSignature, KissError> {
         printlnex!("current signer is :{:?}", self);
@@ -219,7 +220,8 @@ pub struct CommonSignerWeDPR_SM2 {
 lazy_static! {
     static ref SM2SIGHER: WedprSm2p256v1 = WedprSm2p256v1::default();
 }
-
+//unsafe impl Send for CommonSignerWeDPR_SM2{}
+//unsafe impl Sync for CommonSignerWeDPR_SM2{}
 impl ICommonSigner for CommonSignerWeDPR_SM2 {
     fn sign(&self, data: Vec<u8>) -> Result<CommonSignature, KissError> {
         //let SM2SIGHER1:WedprSm2p256v1 = WedprSm2p256v1::default();

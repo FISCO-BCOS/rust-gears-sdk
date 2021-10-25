@@ -30,8 +30,11 @@ use crate::bcossdk::bcosclientconfig::ClientConfig;
 use log::info;
 use crate::bcossdk::cli_common::{Cli};
 use structopt::StructOpt;
-
-fn main() {
+use crate::bcossdk::bcos_channel_threads_worker;
+use crate::bcossdk::eventhandler;
+use fisco_bcos_rust_gears_sdk::bcossdk::macrodef::set_debugprint;
+#[tokio::main]
+pub async fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     let cli:Cli = Cli::from_args();
     info!("start with cli {:?}",&cli);
@@ -106,6 +109,14 @@ fn main() {
         }
         "structdemo"=>{
             let res = sample::structdemo::demo(&cli);
+        }
+        "worker"=>{
+            println!("ready to start worker");
+            set_debugprint(true);
+            bcos_channel_threads_worker::start(cli.default_configfile().as_str()).await;
+        }
+        "event_demo"=>{
+            let res = eventhandler::event_demo(cli.default_configfile().as_str()).await;
         }
         _=>{
             let res = console_cmds::handle_cmd(&cli);

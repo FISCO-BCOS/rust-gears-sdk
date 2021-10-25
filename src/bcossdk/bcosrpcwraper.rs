@@ -21,18 +21,18 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Result as JsonResult, Value as JsonValue};
 
-use crate::bcossdk::bcoschannelclient::{BcosChannelClient, IBcosChannel};
+use crate::bcossdk::bcos_channel_client::{BcosChannelClient, IBcosChannel};
 use crate::bcossdk::bcosclientconfig::{BcosClientProtocol, ClientConfig};
 use crate::bcossdk::bcoshttpclient::HttpJsonRpcClient;
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
 
 ///对应json rpc的request json格式
 #[derive(Debug, Default, Serialize, Deserialize)]
-struct RpcRequestData {
-    jsonrpc: String,
-    method: String,
-    params: JsonValue,
-    id: u8,
+pub struct RpcRequestData {
+    pub jsonrpc: String,
+    pub method: String,
+    pub params: JsonValue,
+    pub id: u8,
 }
 
 impl RpcRequestData {
@@ -75,7 +75,8 @@ pub struct BcosRPC {
     pub jsonrpc_client: HttpJsonRpcClient,
     pub channel_client: BcosChannelClient,
 }
-
+//unsafe impl Send for BcosRPC{}
+//unsafe impl Sync for BcosRPC{}
 impl BcosRPC {
     pub fn new(config: &ClientConfig) -> Result<BcosRPC, KissError> {
         //默认建一个json rpc的对象

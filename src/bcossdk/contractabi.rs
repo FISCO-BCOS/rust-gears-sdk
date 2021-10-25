@@ -60,6 +60,7 @@ use ethabi::token::StrictTokenizer;
 pub struct ContractABI {
     pub abi_file: String,
     pub contract: Contract,
+    pub event_name_map: HashMap<String,Event>,
     pub event_hash_map: HashMap<Hash, Event>,
     pub func_selector_map: HashMap<Vec<u8>, Function>,
     pub hashtype: HashType,
@@ -112,6 +113,7 @@ impl ContractABI {
         let mut contract = ContractABI {
             abi_file: String::from(filename),
             contract: contract_obj,
+            event_name_map:HashMap::new(),
             event_hash_map: HashMap::new(),
             func_selector_map: HashMap::new(),
             hashtype: hashtype.clone(),
@@ -182,7 +184,20 @@ impl ContractABI {
         for event in self.abiparser.events.as_slice() {
             let hash = self.event_abi_utils.event_signature(&event);
             self.event_hash_map.insert(hash, event.clone());
+            self.event_name_map.insert(event.name.clone(),event.clone());
             //println!("event hash {} ,event {:?}", hex::encode(hash), event);
+        }
+    }
+    pub fn find_event_by_name(&self, key: &str) -> Option<&Event> {
+        let getresult = self.event_name_map.get(&key.to_string());
+        getresult
+    }
+
+    pub fn print_event_namehash(&self){
+        let mut i = 0;
+        for (n,e) in &self.event_name_map{
+            i+=1;
+            println!("{}): {:?}",i,e)
         }
     }
     pub fn find_event_by_hash(&self, key: Hash) -> Option<&Event> {

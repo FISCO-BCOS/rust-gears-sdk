@@ -56,7 +56,8 @@ fn main() {
 - 支持基于pem文件的账户创建和私钥读取。
 - 引用WeDPR的密码库进行HASH，签名, 该密码库支持ECDSA和SM2,3,4
 - 控制台支持Struct参数，数组等复杂数据结构，SDK调用方法参见[src/sample/structdemo.rs](src/sample/structdemo.rs)
-
+- 支持合约事件监听，参见[src/bcossdk/eventhandler.rs](src/bcossdk/eventhandler.rs)
+- 客户端sdk支持多线程调用
 
 ## 目录结构：
 
@@ -254,13 +255,12 @@ TLS实现分为国密和非国密两种，国密的证书私钥文件会比非�
 
 ## todo list:
 
-- 补全JSON RPC的接口（待补充：群组操作，系统合约，如权限、治理等）
-- 在mac，arm等多平台上进行测试适配(windows/linux Ubuntu/CentOS已经适配)
-- 支持多线程的channel长连接,实现异步风格的调用模式
-- 支持event回调监听
-- 支持AMOP 
+- 补全JSON RPC的接口（2021.10 大部分done）
+- 在mac，arm等多平台上进行测试适配( 2021.08 windows/linux Ubuntu/CentOS已经适配)
+- 支持多线程的channel长连接,实现异步风格的调用模式 （2021.10done）
+- 支持event回调监听 （2021.10done）
+- 支持AMOP (2021.10 amop实现组包解包，待实现整体框架)
 - 优化代码风格，以更符合rust领域的规范
-- 优化引用库列表，简略没用到的引用库
 - 优化错误处理，包括错误码，错误逻辑，边界异常等 
 - 优化生命周期/内存管理细节
 - 优化性能
