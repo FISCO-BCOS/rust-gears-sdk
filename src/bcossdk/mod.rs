@@ -38,4 +38,5 @@ pub mod abi_tokenizer;
 pub mod bcos_channel_threads_worker;
 pub mod eventhandler;
 pub mod bcos_channel_handler_manager;
+pub mod bcos_channel_tassl_sock_ffi;
 

@@ -33,6 +33,7 @@ use structopt::StructOpt;
 use crate::bcossdk::bcos_channel_threads_worker;
 use crate::bcossdk::eventhandler;
 use fisco_bcos_rust_gears_sdk::bcossdk::macrodef::set_debugprint;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcos_channel_tassl_sock_ffi;
 #[tokio::main]
 pub async fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
@@ -118,9 +119,13 @@ pub async fn main() {
         "event_demo"=>{
             let res = eventhandler::event_demo(cli.default_configfile().as_str()).await;
         }
+        "ssock_ffi"=>{
+            bcos_channel_tassl_sock_ffi::test_ssock();
+        }
         _=>{
             let res = console_cmds::handle_cmd(&cli);
             println!("console cmd result : {:?}",res);
+
         }
     }
 

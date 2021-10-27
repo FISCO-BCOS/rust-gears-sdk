@@ -177,7 +177,7 @@ pub async fn  event_demo(configfile:&str)->Result<(),KissError>{
     println!("contract abi is {} ",evh.contract.abi_file);
         //let handler = Arc::new(DemoEventHandler::new());
     let demohandler = Arc::new(Mutex::new(DemoEventHandler::new(&evh.contract)));
-    let mut  event_name = "on_two_indexed"; //具体定义参见合约sol文件和abi
+    let event_name = "on_two_indexed"; //具体定义参见合约sol文件和abi
     //event_name = "on_set";
     //event里的indexed类型的参数，传入时全部用字符串形式
     let indexed_value = vec!("5","key123");
