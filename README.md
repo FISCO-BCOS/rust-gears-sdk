@@ -103,6 +103,8 @@ ABI格式编解码和2.x的客户端一样依旧用rust实现。
 
 下载后放到当前目录的编译环境路径和运行环境路径下，具体路径取决于开发者的特定项目结构、环境配置。总之一定要在编译期和运行期能映射到C语言SDK库。
 
+* 在linux下编译时，有可能会报告ld找不到库，可以尝试将libbcos-c-sdk.so复制到target/debug/deps/目录下
+
 **C语言SDK接口实现代码**
 
 [https://github.com/FISCO-BCOS/bcos-c-sdk](https://github.com/FISCO-BCOS/bcos-c-sdk)

@@ -68,7 +68,10 @@ impl  ISslStreamWrap for SslStreamWrap{
                 //println!("SslStream send return {:?},",raw_code);
                 match raw_code{
                     10035=>{
-                        //10035表示would block
+                        //10035表示would block @windows
+                        return Ok(0);
+                    }
+                    11=>{//11表示would block @linux
                         return Ok(0);
                     }
                     __=>{return Err(e)  }
@@ -92,6 +95,9 @@ impl  ISslStreamWrap for SslStreamWrap{
                     10035 => {
                          //10035表示would block
                           return Ok(0);
+                    },
+                    11=>{//11表示would block @linux
+                        return Ok(0);
                     }
                     __ => { return Err(e) }
                 }
@@ -162,8 +168,9 @@ impl IBcosChannel  for BcosSSLClient {
         };
 
         //ssl 握手连接
+        let nio_res = ssl_stream.get_ref().set_nonblocking(false);
         let res = ssl_stream.connect();
-        printlnex!("connect result {:?}", &res);
+        println!("SSL Stream connect result {:?}", &res);
         match res {
             Ok(s) => (),
             Err(e) => {
@@ -177,7 +184,6 @@ impl IBcosChannel  for BcosSSLClient {
         };
 
         //sslstream的connect倒不很需要异步，只是connect一下，在connect后再设置异步
-        // ps，sslstream设置为异步后，返回的错误码可能send和read搞混了
         let nio_res = ssl_stream.get_ref().set_nonblocking(true);
         //self.ssl_stream = Option::from(ssl_stream);
         let sslstreamimpl =SslStreamWrap{
