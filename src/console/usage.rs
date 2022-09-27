@@ -1,6 +1,7 @@
-use crate::Cli;
+use crate::{Bcos2Query, Bcos3Query, Cli};
 use crate::bcossdk::bcosclientconfig::ClientConfig;
 use std::path::PathBuf;
+
 
 pub fn usage_account(config:&ClientConfig){
     println!("\n--Account:账户相关的命令--");
@@ -16,7 +17,8 @@ pub fn usage_account(config:&ClientConfig){
     println!("当前账户文件目录:{}",p.to_str().unwrap());
 }
 pub fn usage_contract(config:&ClientConfig){
-    println!("\n--Contract:合约相关的命令--");
+    println!("\n--Contract:合约相关的命令--\n");
+    print!("*[重要] cargon run -- [bcos2/bcos3] deploy/sendtx/call ,表示使用bcos2或者bcos3的客户端, compile编译则不用指定bcos2或bcos3\n");
     let msg=r###"
     deploy [合约名] [合约构造的初始化参数...], 如 deploy HelloWorld [参数1] [参数2]
 
@@ -31,36 +33,17 @@ pub fn usage_contract(config:&ClientConfig){
     写入历史和寻找合约ABI文件的路径以配置文件里的[contract]contractpath=项为准。
     "###;
 
-    println!("{}\n合约当前的路径:{}\n",msg,config.contract.contractpath);
+    println!("{}\n合约当前的路径:{}\n",msg,config.common.contractpath);
 }
 
 pub fn usage_get(config:&ClientConfig){
-    println!("\n--Get:查询类命令--");
+    println!("\n--Get:查询类命令--\n");
+    println!("*[重要] cargon run -- [bcos2/bcos3] get...,表示使用bcos2或者bcos3的客户端\n");
     println!("--查询类指令包含在全部RPC接口指令里，常用的指令如下--");
-    let  msg = r###"
-    节点类-->
-    getBlockNumber，getClientVersion，getNodeInfo
-    getPeers，getPbtView，getSealList，getObserverList， getSyncStatus
-    getNodeIDList，getGroupList，getGroupPeers(groupid)
-    getSystemConfigByKey(key）
-
-    区块类-->
-    getBlockByHash(hash,bool),getBlockByNumber(number,bool),
-    getBlockHeaderByHash(hash,bool),getBlockHashByNumber(number)
-
-    交易类-->
-    getTransactionByHash(hash), getTransactionReceipt(hash)
-    getTransactionByBlockHashAndIndex(blockhash,index)
-    getTransactionByBlockNumberAndIndex(blocknumber,index)
-    getPendingTransactions，getTotalTransactionCount
-    getBatchReceiptsByBlockNumberAndRange(blocknumber,from,count,compressflag)
-    getBatchReceiptsByBlockHashAndRange(blockhash,from,count,compressflag)
-
-    群组操作类(:todo)->
-    generateGroup,startGroup,stopGroup,removeGroup,recoverGroup,queryGroupStatus
-    "###;
-    println!("{}",msg);
-    println!("全部指令参见url：https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html")
+    let bcos2query = Bcos2Query::new();
+    bcos2query.cmdmap.print_cmds(false);
+    let bcos3query = Bcos3Query::new();
+    bcos3query.cmdmap.print_cmds(false);
 }
 pub fn usage_all(config:&ClientConfig){
     println!("--所有命令--");

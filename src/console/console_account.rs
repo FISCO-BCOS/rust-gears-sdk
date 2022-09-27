@@ -59,7 +59,7 @@ pub fn newaccount(
     config: &ClientConfig,
     workpath: &str,
 ) -> Result<(), KissError> {
-    let newaccount = create_account(&config.chain.crypto);
+    let newaccount = create_account(&config.common.crypto);
     println!(">>> create new account --> \n{}", newaccount.to_hexdetail());
     let mut fullpath = PathBuf::from(workpath);
     match name {
@@ -100,7 +100,7 @@ pub fn showaccount(
             let mut path = PathBuf::from(workpath);
             path = path.join(format!("{}.pem", n));
             //println!("path is {:?}",path);
-            return show_account_from_pem(path.to_str().unwrap(), &config.chain.crypto);
+            return show_account_from_pem(path.to_str().unwrap(), &config.common.crypto);
         }
         _ => {}
     }
@@ -116,7 +116,7 @@ pub fn showaccount(
             Some(ss) => {
                 let exts = ss.to_str().unwrap();
                 if exts == "pem" {
-                    show_account_from_pem(entry.path().to_str().unwrap(), &config.chain.crypto)?
+                    show_account_from_pem(entry.path().to_str().unwrap(), &config.common.crypto)?
                 }
             }
             _ => {}

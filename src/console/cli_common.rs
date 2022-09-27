@@ -25,6 +25,17 @@ pub struct Cli {
     pub verbos : u32,
 }
 
+#[derive(StructOpt,Debug)]
+#[structopt(about = "sendtx or call to contract")]
+#[structopt(help="")]
+pub struct OptContract {
+    pub contract_name:String,
+    pub address:String,
+    pub method:String,
+    pub params:Vec<String>
+}
+
+
 impl  Cli{
     pub fn default_configfile(&self)->String{
         let configfile = match &self.configfile{

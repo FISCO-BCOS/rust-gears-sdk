@@ -5,3 +5,7 @@ pub(crate) mod checkgm;
 pub(crate) mod arraydemo;
 pub(crate) mod groupdemo;
 pub(crate) mod structdemo;
+pub(crate) mod bcos3rpc;
+pub(crate) mod bcos3tx;
+pub(crate) mod demo_bcos3client;
+pub(crate) mod demo_bcos3event;

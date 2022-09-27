@@ -13,6 +13,7 @@ unused_assignments
 use chrono::format::{DelayedFormat, StrftimeItems};
 use chrono::Local;
 use std::collections::HashMap;
+use serde_json::Value as JsonValue;
 
 pub fn datetime_str() -> String {
     let now = Local::now();
@@ -21,6 +22,35 @@ pub fn datetime_str() -> String {
     let str_datetime: String = dft.to_string(); // 2021-01-04 20:02:09
     str_datetime
 }
+
+    pub fn json_u64(jsonv: &JsonValue, name: &str, defaultvalue: i64) -> i64 {
+        let v_option = jsonv.get(name);
+        match v_option {
+            Some(v) => {
+                let u_option = v.as_u64();
+                match u_option {
+                    Some(num) => { return num as i64; }
+                    None => { return defaultvalue; }
+                }
+            }
+            None => { return defaultvalue; }
+        }
+    }
+
+    pub fn json_str(jsonv: &JsonValue, name: &str, defaultvalue: &str) -> String {
+        let v_option = jsonv.get(name);
+        match v_option {
+            Some(v) => {
+                let s_option = v.as_str();
+                match s_option {
+                    Some(s) => { return s.to_string(); }
+                    None => { return defaultvalue.to_string(); }
+                }
+            }
+            None => { return defaultvalue.to_string(); }
+        }
+    }
+
 
 pub fn trim_quot(inputstr:&str)->String{
     let s = inputstr.trim();
@@ -33,6 +63,13 @@ pub fn trim_quot(inputstr:&str)->String{
 }
 
 
+
+pub fn get_opt_str(nameopt:&Option<String>)->String{
+    match nameopt{
+        Some(v)=>{return v.clone();}
+        None=>{return "".to_string()}
+    }
+}
 
 ///对较为复杂的输入参数，用split分割不可行， split_param支持以下格式
 ///1,2,3

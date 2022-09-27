@@ -11,27 +11,28 @@
     unused_variables
 )]
 use std::time::Duration;
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::{bcossdkquery, fileutils};
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
+use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdk::kisserror::KissError;
+use fisco_bcos_rust_gears_sdk::bcossdk::{bcossdkquery, fileutils};
 use std::thread;
 use serde_json::{json, Value as JsonValue};
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::bcossdkquery::json_hextoint;
-use crate::bcossdk::cli_common::{Cli};
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory::ContractHistory;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery::json_hextoint;
+use crate::console::cli_common::{Cli};
 use crate::console::console_utils::display_transaction_receipt;
 use fisco_bcos_rust_gears_sdk::bcossdk::liteutils;
 use ethabi::{ParamType, Token};
 use fisco_bcos_rust_gears_sdk::bcossdk::abi_tokenizer::{ABILenientTokenizer, ABITokenizer};
+use fisco_bcos_rust_gears_sdk::bcossdk::solcompile::sol_compile;
 
 pub fn demo_deploy(bcossdk: &mut BcosSDK, contract:&ContractABI) -> Result<String,KissError>
 {
     let contract_name = "TestStruct";
-    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    let compileres  = sol_compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
     println!("compile result:{:?}",compileres);
 
-    let binfile = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name.to_string());
+    let binfile = format!("{}/{}.bin",bcossdk.config.common.contractpath,contract_name.to_string());
     let v = bcossdk.deploy_file(binfile.as_str(),"");
     println!("request response {:?}", v);
     let response = v.unwrap();
@@ -42,8 +43,8 @@ pub fn demo_deploy(bcossdk: &mut BcosSDK, contract:&ContractABI) -> Result<Strin
     let addr:String = receipt["result"]["contractAddress"].as_str().unwrap().to_string();
     let blocknum = json_hextoint(&receipt["result"]["blockNumber"]).unwrap();
     println!("deploy contract on block {}",blocknum);
-    let history_file = ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
-    let res = ContractHistory::save_to_file(history_file.as_str(),"NeedInit",addr.as_str(),blocknum as u32);
+    let history_file = ContractHistory::history_file(bcossdk.config.common.contractpath.as_str());
+    let res = ContractHistory::save_to_file(history_file.as_str(),"bcos2","NeedInit",addr.as_str(),blocknum as u64);
     Ok(addr)
 }
 
@@ -68,7 +69,7 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
     let mut bcossdk = BcosSDK::new_from_config(cli.default_configfile().as_str()).unwrap();
     //println!("{:?}",bcossdk.getNodeInfo());
     let contract = ContractABI::new_by_name("TestStruct",
-                                        bcossdk.config.contract.contractpath.as_str(),
+                                        bcossdk.config.common.contractpath.as_str(),
                                         &bcossdk.hashtype).unwrap();
     let address =  demo_deploy(&mut bcossdk,&contract).unwrap();
     println!("address = {:?}",address);
@@ -98,12 +99,6 @@ pub fn demo(cli:&Cli)->Result<(),KissError>
 
     println!("\n-----------------addUsers--------------------------\n");
 
-    /*rust ethabi库对tuple数组的支持有问题，见ethabi的src/token/mod.rs的tokenize_array方法
-        只是简单的按,分隔，类似"[(frank，85),(grant，55)]"这样在tuple里包含,的，就出错了。
-        有待修改ethabi源代码或自行实现对tuple数组的解析来解决
-        目前暂时不支持结构体数组
-        同理，event，output里的解析也有问题
-     */
     //let users =vec!("(fra\"nk,27)".to_string(),"(grant,55)".to_string(),"(kent'sz,11)".to_string(),);
     //let strdata = ContractABI::array_to_param(&users);
     let strdata = "[(frank,23),(grant55,77)]".to_string();

@@ -459,6 +459,9 @@ impl ContractABI {
         //let contract = Contract_abi::new(abi_path);
         //println!("total to parse logs {}",&log_list.as_array().unwrap().len());
         let mut loglistresult: Vec<ReceiptLog> = Vec::new();
+        if *log_list == JsonValue::Null{
+            return Ok(vec!())
+        }
         for (pos, e) in log_list.as_array().unwrap().iter().enumerate() {
             printlnex!(
                 "\nparse log {}-------------------------------------------------):",

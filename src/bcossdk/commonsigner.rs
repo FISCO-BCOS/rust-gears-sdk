@@ -86,8 +86,8 @@ impl Secp256Signature {
     ///bcos不需要支持魔术数字27以及chainid,这里的逻辑不重要了
     pub fn make_stand_v(v: u64) -> u64 {
         match v {
-            v if v >= 27 && v <= 28 => (v - 27),
-            v if v >= 35 => ((v - 1) % 2),
+            v if v >= 27 && v <= 28 => v - 27,
+            v if v >= 35 => (v - 1) % 2,
             _ => 4,
         }
     }
@@ -271,7 +271,7 @@ pub fn test_common_sign() {
    // let s1 = signer.sign(Vec::from(data.as_bytes())).unwrap();
    let  signer = &wedprsigner;
     let s2 = signer.sign(Vec::from(data.as_bytes())).unwrap();
-    //wedpr转公钥使用了bitcoin算法，前面加04是为了标注这个公钥是没有压缩的，64字节的公钥，如果是压缩的33字节公钥前面会是03
+    //wedpr转公钥使用了带压缩支持的算法，前面加04是为了标注这个公钥是没有压缩的，64字节的公钥，如果是压缩的33字节公钥前面会是03
     let recover = wedprsigner
         .signer
         .recover_public_key(data.as_bytes(), s2.to_vec().as_slice())

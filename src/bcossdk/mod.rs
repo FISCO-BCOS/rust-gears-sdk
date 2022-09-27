@@ -31,7 +31,6 @@ pub mod event_utils;
 pub mod liteutils;
 pub mod bcos_ssl_normal;
 pub mod bcos_channel_client;
-pub mod cli_common;
 pub mod bcossdkgroup;
 pub mod abi_parser;
 pub mod abi_tokenizer;
@@ -39,4 +38,5 @@ pub mod bcos_channel_threads_worker;
 pub mod eventhandler;
 pub mod bcos_channel_handler_manager;
 pub mod bcos_channel_tassl_sock_ffi;
+pub mod solcompile;
 

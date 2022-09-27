@@ -85,7 +85,7 @@ impl BcosRPC {
         jsonrpc_client.target_url = config.rpc.url.clone();
         jsonrpc_client.timeout = config.rpc.timeout;
         let channel_client:BcosChannelClient;
-        if config.chain.protocol == BcosClientProtocol::CHANNEL {
+        if config.bcos2.protocol == BcosClientProtocol::CHANNEL {
             channel_client = BcosChannelClient::new(&config.channel)?;
         }else{
 
@@ -104,9 +104,10 @@ impl BcosRPC {
     }
     pub fn switch_rpc_request_sync(&mut self, outbuffer: &String) -> Result<String, KissError> {
         //let mut response_text =String::default();
-        match self.config.chain.protocol {
+        match self.config.bcos2.protocol {
             BcosClientProtocol::RPC => self.jsonrpc_client.request_sync(&outbuffer),
             BcosClientProtocol::CHANNEL => self.channel_client.request_sync(&outbuffer),
+            _=>{return kisserr!(KissErrKind::EArgument,"unhandled protocal {:?}",self.config.bcos2.protocol)}
         }
         //Ok(response_text);
     }

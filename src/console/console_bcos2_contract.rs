@@ -1,28 +1,42 @@
-use crate::bcossdk::kisserror::{KissError,KissErrKind};
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::bcossdkquery;
+use fisco_bcos_rust_gears_sdk::bcossdk::kisserror::{KissError,KissErrKind};
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
+use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory::ContractHistory;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery;
+
 use std::time::{Duration};
 use std::thread;
-use crate::{Cli};
+use crate::{Cli, cmdmap};
 use crate::{kisserr};
 use serde_json::{Value as JsonValue};
-use crate::bcossdk::bcossdkquery::json_hextoint;
-use crate::bcossdk::bcosclientconfig::{ClientConfig,BcosCryptoKind};
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery::json_hextoint;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcosclientconfig::{ClientConfig,BcosCryptoKind};
 use std::path::PathBuf;
 use std::process::Command;
 use structopt::StructOpt;
-#[derive(StructOpt,Debug)]
-#[structopt(about = "sendtx or call to contract")]
-#[structopt(help="")]
-pub struct OptContract {
-    pub contract_name:String,
-    pub address:String,
-    pub method:String,
-    pub params:Vec<String>
-}
+use fisco_bcos_rust_gears_sdk::bcossdk::solcompile::sol_compile;
+use crate::console::cli_common::OptContract;
+use crate::console::console_compile::console_compile;
+use crate::console_cmdmap::CliCmdMap;
+use crate::sample::demo_bcos3client::demo_bcos3client;
 
+
+pub struct Bcos2Contract{
+    pub cmdmap:CliCmdMap
+}
+impl Bcos2Contract {
+    pub fn new() -> Self {
+        let mut cmdhandler = Bcos2Contract {
+            cmdmap: CliCmdMap::new("BCOS2 Contract")
+        };
+        //用宏定义实现将方法加到map里，宏里可以自动识别方法的名字，作为map的key
+        //于是后续调用时，用名字去match就行了,且可以做到大小写不敏感
+        cmdmap!(cmdhandler.cmdmap.cmd_func_map,   deploy);
+        cmdmap!(cmdhandler.cmdmap.cmd_func_map,   call);
+        cmdmap!(cmdhandler.cmdmap.cmd_func_map,   sendtx);
+        cmdhandler
+    }
+}
 
 
 pub fn deploy(cli:&Cli) ->Result<(),KissError>{
@@ -31,7 +45,7 @@ pub fn deploy(cli:&Cli) ->Result<(),KissError>{
     let mut bcossdk = BcosSDK::new_from_config(configfile.as_str())?;
     println!("BcosSDK: {}",bcossdk.to_summary());
     //每次部署前强制编译一次对应合约，考虑到合约sol可能会有修改
-    let res = compile(cli);
+    let res = console_compile(cli)?;
 
     let contractname =&cli.params[0];
 
@@ -39,7 +53,7 @@ pub fn deploy(cli:&Cli) ->Result<(),KissError>{
     let params = &cli.params[1..];
     println!("deploy contract {} ,params:{:?}",contractname,params);
 
-    let binfile = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contractname.to_string());
+    let binfile = format!("{}/{}.bin",bcossdk.config.common.contractpath,contractname.to_string());
     let res = bcossdk.deploy_withparam(contractname.as_str(),&params);
     //println!("deploy transaction return :{:?}",&res);
     let txhash = match res{
@@ -52,8 +66,8 @@ pub fn deploy(cli:&Cli) ->Result<(),KissError>{
             let address = v["result"]["contractAddress"].as_str().unwrap();
             let blocknum = json_hextoint( &v["result"]["blockNumber"]).unwrap();
             println!("deploy contract on block[{}], address is {}",blocknum,address);
-            let chf = ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
-            let res = ContractHistory::save_to_file(chf.as_str(),contractname,address,blocknum as u32);
+            let chf = ContractHistory::history_file(bcossdk.config.common.contractpath.as_str());
+            let res = ContractHistory::save_to_file(chf.as_str(),"bcos2",contractname,address,blocknum as u64);
             println!("save contract history to file {} ,{:?}",chf,res);
         },
         Err(e)=>{
@@ -74,8 +88,8 @@ pub fn sendtx(cli:&Cli) ->Result<(),KissError>
     let contractfullname = format!("{}/{}.abi",contractdir,&opt.contract_name);
     println!("contract file is {}",contractfullname);
     let contract = ContractABI::new(contractfullname.as_str(),&bcossdk.hashtype)?;
-    let chfile = format!("{}/contracthistory.toml",bcossdk.config.contract.contractpath);
-    let address = ContractHistory::check_address_from_file(chfile.as_str(),
+    let chfile = format!("{}/contracthistory.toml",bcossdk.config.common.contractpath);
+    let address = ContractHistory::check_address_from_file(chfile.as_str(),"bcos2",
                                                            opt.contract_name.as_str(),opt.address.as_str())?;
 
     println!("contract address is {}",&address.as_str());
@@ -88,7 +102,7 @@ pub fn sendtx(cli:&Cli) ->Result<(),KissError>
         txhash,
         3,
         false);
-
+    //println!("receiptresult result :{:?} ",receiptresult);
     match receiptresult {
         Ok(receipt) => {
             crate::console::console_utils::display_transaction_receipt(&receipt,&Option::from(&contract),&bcossdk.config);
@@ -118,8 +132,8 @@ pub fn call(cli:&Cli)->Result<(),KissError> {
     let contractfullname = format!("{}/{}.abi", contractdir, &opt.contract_name);
     println!("contract file is {}", contractfullname);
     let contract = ContractABI::new(contractfullname.as_str(),&bcossdk.hashtype)?;
-    let chfile = format!("{}/contracthistory.toml",bcossdk.config.contract.contractpath);
-    let address = ContractHistory::check_address_from_file(chfile.as_str(),
+    let chfile = format!("{}/contracthistory.toml",bcossdk.config.common.contractpath);
+    let address = ContractHistory::check_address_from_file(chfile.as_str(),"bcos2",
                                                            opt.contract_name.as_str(), opt.address.as_str())?;
 
     println!("contract address is {}", &address.as_str());
@@ -141,28 +155,3 @@ pub fn call(cli:&Cli)->Result<(),KissError> {
 
 
 
-pub fn compile(cli:&Cli)->Result<(),KissError> {
-
-    //let config = ClientConfig::load(cli.default_configfile().as_str())?;
-    let contract_name = cli.params[0].clone();
-    let outputres = BcosSDK::compile(contract_name.as_str(),cli.default_configfile().as_str());
-    println!("compile [{}] done。",contract_name);
-    match outputres
-    {
-        Ok(output)=>{
-
-            println!("compiler {}",output.status);
-            if output.stdout.len() > 0{
-                println!("stdout: {}",String::from_utf8(output.stdout).unwrap());
-            }
-            if output.stderr.len() > 0{
-                println!("stderr: {}",String::from_utf8(output.stderr).unwrap());
-            }
-        }
-        Err(e)=>{
-            println!("Error : {:?}",e);
-        }
-    }
-
-    Ok(())
-}

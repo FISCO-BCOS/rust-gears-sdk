@@ -1,8 +1,10 @@
-use crate::bcossdk::kisserror::{KissError,KissErrKind};
-use crate::bcossdk::bcosclientconfig::ClientConfig;
 pub(crate) mod console_account;
-pub(crate) mod console_cmds;
+pub(crate) mod console_cmdmap;
 pub(crate) mod console_utils;
-pub(crate) mod console_contract;
+pub(crate) mod console_bcos2_contract;
 pub(crate) mod usage;
-
+pub(crate) mod console_bcos2_query;
+pub(crate) mod cli_common;
+pub(crate) mod console_bcos3_query;
+pub(crate) mod console_bcos3_contracts;
+pub(crate) mod console_compile;

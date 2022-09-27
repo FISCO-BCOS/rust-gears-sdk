@@ -1,14 +1,24 @@
-[chain]
-chainid = 1
-groupid = 1
+[common]
 crypto = "ECDSA"
 accountpem = "conf/client.pem"
-protocol = "RPC"
-
-[contract]
 contractpath = "./contracts"
 solc = "./bin/solc"
 solcgm = "./bin/solc-gm"
+
+#------------------FISCO BCOS3.0 Begin----------------------------------------
+[bcos3]
+# FISCO BCOS3.0的配置段，如连接FISCO BCOS2.0版本，无需关心此段
+# FISCO BCOS3.0 c底层sdk的配置，都在bcos3_config_file里，无需配置在此文件
+sdk_config_file ="./bcos3sdklib/bcos3_sdk_config.ini"
+group = "group0"
+#-------------------FISCO BCOS3.0 End-----------------------------------------
+
+
+#------------------FISCO BCOS2.0 Begin----------------------------------------
+[bcos2]
+chainid = 1
+groupid = 1
+protocol = "CHANNEL"
 
 [rpc]
 url = "http://127.0.0.1:8545"
@@ -29,5 +39,4 @@ gmsdkcert = "sdk/gmsdk.crt"
 gmsdkkey = "sdk/gmsdk.key"
 gmensdkcert = "sdk/gmensdk.crt"
 gmensdkkey = "sdk/gmensdk.key"
-
-
+#------------------FISCO BCOS2.0 End----------------------------------------

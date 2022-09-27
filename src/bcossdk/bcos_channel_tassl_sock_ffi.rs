@@ -1,19 +1,26 @@
 #[cfg(feature = "tassl_sock_ffi")]
 extern crate libc;
+
+#[cfg(feature = "tassl_sock_ffi")]
+use std::ffi::CStr;
+#[cfg(feature = "tassl_sock_ffi")]
+use std::ffi::CString;
+
+#[cfg(feature = "tassl_sock_ffi")]
+use libc::c_char;
 #[cfg(feature = "tassl_sock_ffi")]
 use libc::c_int;
 #[cfg(feature = "tassl_sock_ffi")]
 use libc::c_void;
 #[cfg(feature = "tassl_sock_ffi")]
-use libc::c_char;
-#[cfg(feature = "tassl_sock_ffi")]
-use std::ffi::CString;
-#[cfg(feature = "tassl_sock_ffi")]
-use crate::bcossdk::channelpack::{ChannelPack, make_channel_pack, CHANNEL_PACK_TYPE};
+use serde_json::json;
+
 #[cfg(feature = "tassl_sock_ffi")]
 use crate::bcossdk::bcosrpcwraper::RpcRequestData;
 #[cfg(feature = "tassl_sock_ffi")]
-use serde_json::{json};
+use crate::bcossdk::channelpack::{CHANNEL_PACK_TYPE, ChannelPack, make_channel_pack};
+
+//use std::ffi::CStr;
 //use libc::size_t;
 //ffi 模式的调用，需要native_ssock_wrap.lib文件
 //打开tassl_sock_ffi特性，需要用这个语句编译：cargo build --features  "tassl_sock_ffi"
@@ -36,27 +43,60 @@ pub fn getNodeVersionPack() -> Option<ChannelPack>
     make_channel_pack(CHANNEL_PACK_TYPE::RPC, req.encode().unwrap().as_str())
 }
 
+
+#[cfg(feature = "tassl_sock_ffi")]
+extern "C" fn fn_callback(buffer: *mut c_char, buffersize: c_int) -> c_int
+{
+    println!("IN CALLBACK {}", buffersize);
+    println!("IN CALLBACK {:?}", buffer);
+    unsafe {
+        let mut cs = CStr::from_ptr(buffer.clone());
+        println!("cs : {:?}", &cs);
+        let content = "1024 from rust";
+        buffer.copy_from(content.as_ptr() as *const c_char, content.len());
+
+        return content.len() as c_int;
+    }
+}
+
+
+#[cfg(feature = "tassl_sock_ffi")]
+pub fn test_callback() {
+    #[link(name = "libtestcallback")]
+    extern "C" {
+        fn dotest(fncb: *mut c_void);
+    }
+    unsafe {
+        dotest(fn_callback as *mut c_void);
+        {
+            thread::sleep(Duration::from_secs(5));
+        }
+    }
+}
+
 #[cfg(feature = "tassl_sock_ffi")]
 pub fn test_ssock()
 {
+    test_callback();
+    return;
     #[link(name = "native_tassl_sock_wrap")]
-    extern {
-    fn ssock_create() -> *mut c_void;
-    fn ssock_set_echo_mode(psock: *mut c_void, v: c_int);
-    fn ssock_init(psock: *mut c_void,
-                  ca_crt_file_: *const c_char,
-                  sign_crt_file_: *const c_char,
-                  sign_key_file_: *const c_char,
-                  en_crt_file_: *const c_char,
-                  en_key_file_: *const c_char,
-    ) -> c_int;
-    fn ssock_try_connect(psock: *mut c_void, ip: *const c_char, port: c_int) -> c_int;
-    fn ssock_send(psock: *mut c_void, data: *const c_char, len: c_int)->c_int;
-    fn ssock_recv(psock: *mut c_void, data: *mut c_char, buffersize: c_int)->c_int;
-    fn ssock_finish(psock: *mut c_void);
-}
-    unsafe {
+    extern "C" {
+        fn ssock_create() -> *mut c_void;
+        fn ssock_set_echo_mode(psock: *mut c_void, v: c_int);
+        fn ssock_init(psock: *mut c_void,
+                      ca_crt_file_: *const c_char,
+                      sign_crt_file_: *const c_char,
+                      sign_key_file_: *const c_char,
+                      en_crt_file_: *const c_char,
+                      en_key_file_: *const c_char,
+        ) -> c_int;
+        fn ssock_try_connect(psock: *mut c_void, ip: *const c_char, port: c_int) -> c_int;
+        fn ssock_send(psock: *mut c_void, data: *const c_char, len: c_int) -> c_int;
+        fn ssock_recv(psock: *mut c_void, data: *mut c_char, buffersize: c_int) -> c_int;
+        fn ssock_finish(psock: *mut c_void);
+    }
 
+    unsafe {
         let cafile = CString::new("gm/sdk/gmca.crt").unwrap();
         let sdkcrt = CString::new("gm/sdk/gmsdk.crt").unwrap();
         let sdkkey = CString::new("gm/sdk/gmsdk.key").unwrap();
@@ -92,12 +132,12 @@ pub fn test_ssock()
             //println!("recv result {:?}", r);
             if r > 0 {
                 //println!("recv size :{}",r);
-                println!("r = {}",r);
+                println!("r = {}", r);
                 recvbuffer.set_len(r as usize);
 
-                println!("{:?}",recvbuffer);
+                println!("{:?}", recvbuffer);
                 let p = ChannelPack::unpack(&recvbuffer).unwrap();
-                println!("pack: {}",p.detail());
+                println!("pack: {}", p.detail());
                 break;
             }
         }
@@ -107,6 +147,6 @@ pub fn test_ssock()
 
 
 #[cfg(not(feature = "tassl_sock_ffi"))]
-pub fn test_ssock(){
+pub fn test_ssock() {
     println!("ffi not implement")
 }

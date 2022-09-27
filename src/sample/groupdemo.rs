@@ -19,7 +19,7 @@ use std::thread;
 use serde_json::{json, Value as JsonValue};
 use crate::bcossdk::contracthistory::ContractHistory;
 use crate::bcossdk::bcossdkquery::json_hextoint;
-use crate::bcossdk::cli_common::Cli;
+use crate::console::cli_common::Cli;
 //---------------------------------------------------------
 pub fn demo(cli:&Cli)->Result<(),KissError>
 {

@@ -10,11 +10,13 @@
     unused_assignments
 )]
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use serde_derive::{Deserialize, Serialize};
 use toml;
-use toml::value::*;
+
+
 
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
 use crate::bcossdk::{fileutils, liteutils};
@@ -23,8 +25,8 @@ use crate::bcossdk::{fileutils, liteutils};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct ContractHistory {
-    address: Map<String, Value>,
-    history: Map<String, Value>,
+    address: HashMap<String,HashMap<String, String>>,
+    history: HashMap<String,HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -32,7 +34,7 @@ pub struct ContractRecord {
     pub address: String,
     pub name: String,
     pub timestamp: String,
-    pub blocknum: u32,
+    pub blocknum: u64,
 }
 impl ContractRecord {
     pub fn decord(address: &str, raw: &str) -> ContractRecord {
@@ -43,7 +45,7 @@ impl ContractRecord {
             address: address.to_string(),
             name: sp.get(0).unwrap().to_string(),
             timestamp: sp.get(1).unwrap().to_string(),
-            blocknum: u32::from_str_radix(sp[2], 10).unwrap(),
+            blocknum: u64::from_str_radix(sp[2], 10).unwrap(),
         }
     }
     pub fn encode(&self, withaddress: bool) -> String {
@@ -57,7 +59,7 @@ impl ContractRecord {
         }
     }
 
-    pub fn make_record_msg(contract_name: &str, address: &str, blocknum: u32) -> String {
+    pub fn make_record_msg(contract_name: &str, address: &str, blocknum: u64) -> String {
         let str_datetime = liteutils::datetime_str();
         let record = ContractRecord {
             address: address.to_string(),
@@ -94,16 +96,28 @@ impl ContractHistory {
             }
         }
     }
-    pub fn add(&mut self, contract_name: &str, address: &str, blocknum: u32) {
+    pub fn add(&mut self,segment:&str, contract_name: &str, address: &str, blocknum: u64) {
+        //先找到tag的指定段
+
+        let mut segment_map:HashMap<String,String> = HashMap::new();
+        if self.address.contains_key(segment){
+            segment_map = self.address.get(segment).unwrap().clone();
+        }
+        segment_map.insert(contract_name.to_string(),address.to_string());
         self.address
-            .insert(contract_name.to_string(), Value::from(address));
-        self.add_history_record(contract_name, address, blocknum);
+            .insert(segment.to_string(), segment_map);
+        self.add_history_record(segment,contract_name, address, blocknum);
     }
 
-    pub fn add_history_record(&mut self, contract_name: &str, address: &str, blocknum: u32) {
+    pub fn add_history_record(&mut self,segment:&str, contract_name: &str, address: &str, blocknum: u64) {
         let str_datetime = liteutils::datetime_str();
         let msg = ContractRecord::make_record_msg(contract_name, address, blocknum);
-        self.history.insert(address.to_string(), Value::from(msg));
+        let mut segment_map:HashMap<String,String> = HashMap::new();
+        if self.history.contains_key(segment){
+            segment_map = self.history.get(segment).unwrap().clone();
+        }
+        segment_map.insert(address.to_string(),msg.to_string());
+        self.history.insert(segment.to_string(), segment_map);
     }
 
     pub fn save(&self, filename: &str) -> Result<(), KissError> {
@@ -116,34 +130,33 @@ impl ContractHistory {
         }
     }
 
-    pub fn getlast(&self, contract_name: &str) -> Result<String, KissError> {
-        if self.address.contains_key(contract_name) {
-            let v = self.address.get(contract_name).unwrap().as_str().unwrap();
-            //v = v.trim_start_matches("\"").to_string();
-            //v = v.trim_end_matches("\"").to_string();
-            //printlnex!("get last address is [{}]",v);
-            Ok(v.to_string())
-        } else {
-            kisserr!(
+    pub fn getlast(&self,segment:&str, contract_name: &str) -> Result<String, KissError> {
+
+        if self.address.contains_key(segment) {
+            let segment_map = self.address.get(segment).unwrap().clone();
+            if segment_map.contains_key(contract_name) {
+                let v = segment_map.get(contract_name).unwrap();
+                return Ok(v.to_string())
+            }
+        }
+        return kisserr!(
                 KissErrKind::Error,
                 "contract latest history not found {}",
-                contract_name
-            )
-        }
+                contract_name )
     }
-    pub fn find_record_by_address(&self, address: &str) -> Result<ContractRecord, KissError> {
+    pub fn find_record_by_address(&self,segment:&str, address: &str) -> Result<ContractRecord, KissError> {
         printlnex!("history :{:?}", self);
-        if self.history.contains_key(address) {
-            let v = self
-                .history
-                .get(address)
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string();
-            //printlnex!("found contract name {} for address {}",&name,address);
-            let r = ContractRecord::decord(address, v.as_str());
-            return Ok(r);
+        if self.history.contains_key(segment) {
+            let segment_map = self.history.get(segment).unwrap().clone();
+            if segment_map.contains_key(address)
+            {
+                let v = segment_map
+                    .get(address)
+                    .unwrap();
+                //printlnex!("found contract name {} for address {}",&name,address);
+                let r = ContractRecord::decord(address, v.as_str());
+                return Ok(r);
+            }
         }
         kisserr!(
             KissErrKind::EFormat,
@@ -158,35 +171,38 @@ impl ContractHistory {
 
     pub fn save_to_file(
         history_file: &str,
+        segment:&str,
         contract_name: &str,
         addr: &str,
-        blocknum: u32,
+        blocknum: u64,
     ) -> Result<(), KissError> {
         let mut ch = ContractHistory::default();
         let p = Path::new(history_file);
         if p.exists() {
             ch = ContractHistory::load(history_file)?;
         }
-        ch.add(contract_name, addr, blocknum);
+        ch.add(segment,contract_name, addr, blocknum);
         ch.save(history_file)
     }
     pub fn get_last_from_file(
         history_file: &str,
+        segment:&str,
         contract_name: &str,
     ) -> Result<String, KissError> {
         let ch = ContractHistory::load(history_file)?;
-        ch.getlast(contract_name)
+        ch.getlast(segment,contract_name)
     }
 
     ///如果输入的地址是last | latest 则去指定文件里,按指定的合约名寻找最新的地址, 如果是合格地址（todo），则直接返回
     pub fn check_address_from_file(
         fullfilepath: &str,
+        segment:&str,
         contract_name: &str,
         addressinput: &str,
     ) -> Result<String, KissError> {
         match addressinput {
             "last" | "latest" => {
-                let addr = ContractHistory::get_last_from_file(fullfilepath, contract_name)?;
+                let addr = ContractHistory::get_last_from_file(fullfilepath, segment,contract_name)?;
                 printlnex!("get from history addr is [{}]", &addr);
                 return Ok(addr);
             }
@@ -194,18 +210,64 @@ impl ContractHistory {
         };
     }
 }
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+struct GroupData{
+    pub name: HashMap<String,HashMap<String,String>>
+}
+
+
+
+pub fn test_multi(){
+    //let mut gd:HashMap<String,HashMap<String,String>> = HashMap::new();
+    let mut gd=GroupData{
+        name: HashMap::new()
+    };
+    let mut gd1:HashMap<String,HashMap<String,String>> = HashMap::new();
+    let mut car :HashMap<String,String> = HashMap::new();
+    car.insert("c260".to_string(),"benz".to_string());
+    car.insert("a3".to_string(),"audi".to_string());
+    car.insert("x3".to_string(),"bmw".to_string());
+
+    let mut fruit :HashMap<String,String> = HashMap::new();
+    fruit.insert("apple".to_string(),"red".to_string());
+    fruit.insert("banana".to_string(),"yellow".to_string());
+
+    gd.name.insert("carbrand".to_string(),car.clone());
+    gd.name.insert("fruitcolor".to_string(),fruit.clone());
+
+    gd1.insert("carbrand".to_string(),car.clone());
+    gd1.insert("fruitcolor".to_string(),fruit.clone());
+
+
+    let res = toml::to_string_pretty(&gd1).unwrap();
+    println!("{}",res);
+
+
+    let mut v:HashMap<String,HashMap<String,String>> = toml::from_str(res.as_str()).unwrap();
+    println!("from toml:{:?}",v);
+    let mut car = v.get("carbrand").unwrap().clone();
+    car.insert("x3".to_string(),"bwm_2022".to_string());
+    v.insert("carbrand".to_string(),car.clone());
+    println!("after change {}",toml::to_string_pretty(&v).unwrap());
+}
+
 
 pub fn test_toml() {
-    let start = time::now();
-    let history_name = "contract.toml";
+    //return test_multi();
+
+    let history_name = "contracts/contracthistory1.toml";
     let mut ch = ContractHistory::load(history_name).unwrap();
     println!("{:?}", ch);
-    let addr = ch.getlast("HelloWorld").unwrap();
+    let addr = ch.getlast("seg2","HelloWorld").unwrap();
     println!("get by name {}", addr);
-    ch.add("a", "0xabcdefg", 0);
-    ch.add("HelloWorld", "0xef1234567890", 99);
-    //let res = ch.save(history_name);
-    let end = time::now();
-    let stamp = end - start;
-    println!("using {}", stamp.num_milliseconds())
+    ch.add("seg1","a", "0xabcdefg", 0);
+    ch.add("seg2","HelloWorld1", "0xef1234567890", 99);
+    let res = ch.save(history_name);
+
+    println!("getlast {:?}",ch.getlast("seg2","HelloWorld"));
+    println!("find by address {:?}",ch.find_record_by_address("seg2","0x02687d278477a84328446e580f79cfb12ab219e4"));
+
+
+
+
 }

@@ -74,7 +74,7 @@ impl EventHandler{
     pub fn new(configfile:&str,contract_name:&str)->Self{
         let worker = BcosChannelWorker::new(configfile);
         let contract = ContractABI::new_by_name(contract_name,
-                                            worker.bcossdk.config.contract.contractpath.as_str(),
+                                            worker.bcossdk.config.common.contractpath.as_str(),
                                             &worker.bcossdk.hashtype).unwrap();
 
         EventHandler {
@@ -171,8 +171,8 @@ pub async fn  event_demo(configfile:&str)->Result<(),KissError>{
 
     let contract_name = "HelloEvent";
     let mut evh = EventHandler::new(configfile,contract_name);
-    let history_file = ContractHistory::history_file(evh.worker.lock().unwrap().bcossdk.config.contract.contractpath.as_str());
-    let address = ContractHistory::get_last_from_file(history_file.as_str(),contract_name)?;
+    let history_file = ContractHistory::history_file(evh.worker.lock().unwrap().bcossdk.config.common.contractpath.as_str());
+    let address = ContractHistory::get_last_from_file(history_file.as_str(),"bcos2",contract_name)?;
     println!("address is {}",address);
     println!("contract abi is {} ",evh.contract.abi_file);
         //let handler = Arc::new(DemoEventHandler::new());

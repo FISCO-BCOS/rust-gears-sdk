@@ -73,7 +73,7 @@ pub fn load_key_from_pem(pemfile: &str) -> Result<Vec<u8>, KissError> {
     match pemres {
         Ok(pem) => Ok(pem.contents),
         Err(e) => {
-            kisserr!(KissErrKind::EFormat, "load pem {:?} error {:?}", pemfile, e)
+            kisserr!(KissErrKind::EFormat,"load pem {:?} error {:?}", pemfile, e)
         }
     }
 }

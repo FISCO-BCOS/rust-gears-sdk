@@ -2,6 +2,7 @@ target/
 sdk/
 lib/
 .idea/
+bin/
 conf/config.toml
 gm/conf/config.toml
 conf/client_config.toml
@@ -25,3 +26,4 @@ log/
 gm/
 *.log
 *.abi
+*.toml

@@ -11,24 +11,25 @@
     unused_variables
 )]
 use std::time::Duration;
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::bcossdkquery;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
+use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdk::kisserror::KissError;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery;
 use std::thread;
-use crate::bcossdk::bcossdkquery::json_hextoint;
-use crate::bcossdk::contracthistory;
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::channelpack::ChannelPack;
-use crate::bcossdk::liteutils::datetime_str;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery::json_hextoint;
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory;
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory::ContractHistory;
+use fisco_bcos_rust_gears_sdk::bcossdk::channelpack::ChannelPack;
+use fisco_bcos_rust_gears_sdk::bcossdk::liteutils::datetime_str;
 use crate::console::console_utils;
+use fisco_bcos_rust_gears_sdk::bcossdk::solcompile::{sol_compile};
 pub fn demo_deploy_helloworld(bcossdk: &mut BcosSDK) -> Result<String,KissError>
 {
     let contract_name = "HelloWorld";
-    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    let compileres  = sol_compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
     println!("compile result:{:?}",compileres);
 
-    let binpath = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name);
+    let binpath = format!("{}/{}.bin",bcossdk.config.common.contractpath,contract_name);
     println!("Contract Bin file {}",&binpath);
 
     let v = bcossdk.deploy_file(binpath.as_str(), "");
@@ -43,8 +44,8 @@ pub fn demo_deploy_helloworld(bcossdk: &mut BcosSDK) -> Result<String,KissError>
     let addr:String = receipt["result"]["contractAddress"].as_str().unwrap().to_string();
     let blocknum = json_hextoint(&receipt["result"]["blockNumber"]).unwrap();
     println!("deploy contract on block {}",blocknum);
-    let chfile = format!("{}/contracthistory.toml",bcossdk.config.contract.contractpath);
-    let res = ContractHistory::save_to_file(chfile.as_str(),"HelloWorld",addr.as_str(),blocknum as u32);
+    let chfile = format!("{}/contracthistory.toml",bcossdk.config.common.contractpath);
+    let res = ContractHistory::save_to_file(chfile.as_str(),"bcos2","HelloWorld",addr.as_str(),blocknum as u64);
     Ok(addr)
 
 }
@@ -62,7 +63,7 @@ pub fn demo(configfile:&str)
     println!("new addr {}",&newaddr);
 
     let contract = ContractABI::new_by_name("HelloWorld",
-                                            bcossdk.config.contract.contractpath.as_str(),
+                                            bcossdk.config.common.contractpath.as_str(),
                                             &bcossdk.hashtype).unwrap();
     //let to_address = String::from("882be29b2d5ac85d6c476fa3fd5f0cae4b4585cc");
     let to_address = newaddr;

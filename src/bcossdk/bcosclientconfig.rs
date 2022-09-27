@@ -34,6 +34,7 @@ pub enum BcosCryptoKind {
 pub enum BcosClientProtocol {
     RPC,
     CHANNEL,
+    BCOS3,
 }
 
 impl BcosCryptoKind {
@@ -43,27 +44,41 @@ impl BcosCryptoKind {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct ChainConfig {
+pub struct Bcos2ChainConfig {
     pub chainid: u32,
     pub groupid: u32,
-    pub crypto: BcosCryptoKind,
-    pub accountpem: String,
     pub protocol: BcosClientProtocol,
 }
 //unsafe impl Send for ChainConfig{}
 //unsafe impl Sync for ChainConfig{}
 
-impl ChainConfig {
+impl Bcos2ChainConfig {
     pub fn default() -> Self {
-        ChainConfig {
+        Bcos2ChainConfig {
             chainid: 1,
             groupid: 1,
-            crypto: BcosCryptoKind::ECDSA,
-            accountpem: "".to_string(),
             protocol: BcosClientProtocol::RPC,
         }
     }
 }
+
+//Bcos3的相关配置
+#[derive(Deserialize, Debug, Default, Clone)]
+pub struct Bcos3Config {
+    // C语言SDK所用的配置文件，全目录或相对目录，包含文件名，如"./bcos3sdklib/bcos3_sdk_config.ini"
+    pub sdk_config_file:String,
+    pub group :String
+}
+
+impl Bcos3Config{
+    pub fn default()-> Self{
+        Bcos3Config{
+            sdk_config_file : "./bcos3sdklib/bcos3_sdk_config.ini".to_string(),
+            group:"group0".to_string()
+        }
+    }
+}
+
 //rpc连接方式的配置
 #[derive(Deserialize, Debug, Default, Clone)]
 pub struct RpcConfig {
@@ -86,6 +101,8 @@ impl RpcConfig {
         }
     }
 }
+
+
 
 ///channel连接方式的配置
 #[derive(Deserialize, Debug, Clone)]
@@ -134,22 +151,25 @@ impl ChannelConfig {
 
 ///合约相关配置，主要是目录和历史保存路径
 #[derive(Deserialize, Debug, Clone)]
-pub struct ContractConfig {
+pub struct CommonConfig {
+    pub crypto: BcosCryptoKind,
+    pub accountpem: String,
     pub contractpath: String,
     pub solc :String, //solc编译器
     pub solcgm :String, //solc国密版本编译器
 }
-unsafe impl  Sync for ContractConfig {
+unsafe impl  Sync for CommonConfig {
 
 }
-unsafe impl  Send for ContractConfig {
+unsafe impl  Send for CommonConfig {
 
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ClientConfig {
-    pub chain: ChainConfig,
-    pub contract: ContractConfig,
+    pub common: CommonConfig,
+    pub bcos3:Bcos3Config,
+    pub bcos2: Bcos2ChainConfig,
     pub rpc: RpcConfig,
     pub channel: ChannelConfig,
     pub configfile: Option<String>,
@@ -159,11 +179,18 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     pub fn load(config_file: &str) -> Result<ClientConfig, KissError> {
+
+
         let loadres = fileutils::readstring(config_file);
         match loadres {
             Ok(text) => {
                 //println!("{:?}",text);
+                let   v: toml::Value = toml::from_str(&text).unwrap();
+                //println!("Chain config {:?}",v["chain"]["accountpem"]);
+
+               // println!("toml value: {:?}",v);
                 let configresult: Result<ClientConfig, toml::de::Error> = toml::from_str(&text);
+
                 match configresult {
                     Ok(config) => {
                         let mut c = config.clone();

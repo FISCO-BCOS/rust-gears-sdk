@@ -11,24 +11,25 @@
     unused_variables
 )]
 use std::time::Duration;
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::bcossdkquery;
-use crate::bcossdk::bcossdk;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
+use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdk::kisserror::KissError;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk;
 use serde_json::{json, Value as JsonValue};
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::bcossdkquery::json_hextoint;
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory::ContractHistory;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery::json_hextoint;
+use fisco_bcos_rust_gears_sdk::bcossdk::solcompile::sol_compile;
 use crate::console::console_utils;
 
 pub fn demo_deploy_simpleinfo(bcossdk: &mut BcosSDK) -> Result<String,KissError>
 {
     let params:[String;0]=[];
     let contract_name = "SimpleInfo";
-    let compileres  = BcosSDK::compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
+    let compileres  = sol_compile(contract_name,&bcossdk.config.configfile.as_ref().unwrap().as_str());
     println!("compile result:{:?}",compileres);
 
-    let binfile = format!("{}/{}.bin",bcossdk.config.contract.contractpath,contract_name.to_string());
+    let binfile = format!("{}/{}.bin",bcossdk.config.common.contractpath,contract_name.to_string());
     let v = bcossdk.deploy_file(binfile.as_str(), "");
     println!("request response {:?}", v);
     let response = v.unwrap();
@@ -41,8 +42,8 @@ pub fn demo_deploy_simpleinfo(bcossdk: &mut BcosSDK) -> Result<String,KissError>
     let addr:String = receipt["result"]["contractAddress"].as_str().unwrap().to_string();
     let blocknum = json_hextoint(&receipt["result"]["blockNumber"]).unwrap();
     println!("deploy contract on block {}",blocknum);
-    let chf = ContractHistory::history_file(bcossdk.config.contract.contractpath.as_str());
-    let res = ContractHistory::save_to_file(chf.as_str(),"SimpleInfo",addr.as_str(),blocknum as u32);
+    let chf = ContractHistory::history_file(bcossdk.config.common.contractpath.as_str());
+    let res = ContractHistory::save_to_file(chf.as_str(),"bcos2","SimpleInfo",addr.as_str(),blocknum as u64);
     Ok(addr)
 }
 
@@ -72,7 +73,7 @@ pub fn demo(configfile:&str)
 {
     let mut bcossdk = BcosSDK::new_from_config(configfile).unwrap();
     let contract = ContractABI::new_by_name("SimpleInfo",
-                                            bcossdk.config.contract.contractpath.as_str(),
+                                            bcossdk.config.common.contractpath.as_str(),
                                             &bcossdk.hashtype).unwrap();
     let block_limit = bcossdk.getBlockLimit();
     println!("block limit {:?}",block_limit);

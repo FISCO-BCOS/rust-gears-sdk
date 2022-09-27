@@ -136,7 +136,7 @@ impl EventABIUtils {
             // verify
             let eventsig_topic = topics
                 .get(0)
-                .ok_or(KissError::new(KissErrKind::EFormat, format!("miss sig")))?;
+                .ok_or(KissError::new(KissErrKind::EFormat, -1,format!("miss sig").as_str()))?;
             let evsig = self.event_signature(event);
             if eventsig_topic != &evsig {
                 return kisserr!(KissErrKind::Error, "Invalidata wrong signature");

@@ -22,7 +22,6 @@
 use ethereum_types::U256;
 use serde_json::{json, Value as JsonValue};
 use time::Tm;
-use log::info;
 use crate::bcossdk::accountutil::{account_from_pem, BcosAccount};
 use crate::bcossdk::bcosclientconfig::BcosClientProtocol;
 use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ClientConfig};
@@ -35,8 +34,6 @@ use crate::bcossdk::commonsigner::{
 use crate::bcossdk::contractabi::ContractABI;
 use crate::bcossdk::fileutils;
 use crate::bcossdk::kisserror::{KissErrKind, KissError};
-use std::process::{Command, Output};
-use std::path::{PathBuf, Path};
 use ethabi::Token;
 
 #[derive()]
@@ -59,11 +56,11 @@ impl BcosSDK {
     pub fn to_summary(&self) -> String {
         let basic = format!(
             "Crypto kind:{:?},configfile:{}",
-            &self.config.chain.crypto,
+            &self.config.common.crypto,
             &self.config.configfile.as_ref().unwrap()
         );
         let protocol;
-        match self.config.chain.protocol {
+        match self.config.bcos2.protocol {
             BcosClientProtocol::RPC => {
                 protocol = format!("RPC:{}", self.config.rpc.url);
             }
@@ -72,6 +69,9 @@ impl BcosSDK {
                     "Channel:{}:{}({:?})",
                     &self.config.channel.ip, self.config.channel.port, &self.config.channel.tlskind
                 );
+            }
+            _=>{
+                protocol =format!("unhandle protocal: {:?}",self.config.bcos2.protocol);
             }
         }
         let full = format!("{},{}", protocol, basic);
@@ -84,13 +84,13 @@ impl BcosSDK {
 
         //国密和非国密关键步骤，设置hash,账户类型和签名的密码学方法
         //一定要先设置hash算法，这是基础中的基础
-        let hashtype = CommonHash::crypto_to_hashtype(&config.chain.crypto);
+        let hashtype = CommonHash::crypto_to_hashtype(&config.common.crypto);
 
         let mut ecdsasigner = Option::None;
         let mut gmsigner = Option::None;
-        let account = account_from_pem(config.chain.accountpem.as_str(), &config.chain.crypto)?;
+        let account = account_from_pem(config.common.accountpem.as_str(), &config.common.crypto)?;
         //printlnex!("done account");
-        match &config.chain.crypto {
+        match &config.common.crypto {
             BcosCryptoKind::ECDSA => {
                 let mut signer = CommonSignerWeDPR_Secp256::default();
                 signer.account = account.clone();
@@ -133,7 +133,7 @@ impl BcosSDK {
         let block_limit = self.getBlockLimit()?;
         let to_address = "".to_string();
         let tx = self.make_transaction(&to_address, &hexcode, block_limit);
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "sendRawTransaction";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
         let hexdata = hex::encode(rawdata);
@@ -156,11 +156,11 @@ impl BcosSDK {
         contractname: &str,
         params_array: &[String],
     ) -> Result<JsonValue, KissError> {
-        //let binfile = format!("{}/{}.bin",self.config.contract.contractpath,contract_name.to_string())?;
+        //let binfile = format!("{}/{}.bin",self.config.common.contractpath,contract_name.to_string())?;
         let contract = ContractABI::new_by_name(
             contractname,
-            self.config.contract.contractpath.as_str(),
-            &CommonHash::crypto_to_hashtype(&self.config.chain.crypto),
+            self.config.common.contractpath.as_str(),
+            &CommonHash::crypto_to_hashtype(&self.config.common.crypto),
         )?;
         let paramcode = contract
             .encode_construtor_input("".as_bytes().to_vec(), &params_array, true)
@@ -177,15 +177,15 @@ impl BcosSDK {
     ) -> Result<JsonValue, KissError> {
         let contract = ContractABI::new_by_name(
             contractname,
-            self.config.contract.contractpath.as_str(),
-            &CommonHash::crypto_to_hashtype(&self.config.chain.crypto),
+            self.config.common.contractpath.as_str(),
+            &CommonHash::crypto_to_hashtype(&self.config.common.crypto),
         )?;
         let paramcode = contract
             .encode_construtor_input("".as_bytes().to_vec(), &params_array, true)
             .unwrap();
         let binfile = format!(
             "{}/{}.bin",
-            self.config.contract.contractpath,
+            self.config.common.contractpath,
             contractname.to_string()
         );
         self.deploy_file(binfile.as_str(), paramcode.as_str())
@@ -212,7 +212,7 @@ impl BcosSDK {
         method: &str,
         params: &[String],
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let from = hex::encode(&self.account.address);
         let to = address;
         let res = contract.encode_function_input_to_abi(method, params, true);
@@ -246,8 +246,8 @@ impl BcosSDK {
         block_limit_i32: u32,
     ) -> Option<BcosTransaction> {
         let randid: u64 = rand::random();
-        let chainid = self.config.chain.chainid;
-        let groupid = self.config.chain.groupid;
+        let chainid = self.config.bcos2.chainid;
+        let groupid = self.config.bcos2.groupid;
         Option::from(BcosTransaction {
             to_address: crate::bcossdk::bcostransaction::encode_address(to_address),
             random_id: U256::from(randid),
@@ -265,7 +265,7 @@ impl BcosSDK {
 
     ///根据配置选择签名算法实现
     pub fn pick_signer(&self) -> &dyn ICommonSigner {
-        match self.config.chain.crypto {
+        match self.config.common.crypto {
             BcosCryptoKind::ECDSA => {
                 let signer = self.ecdsasigner.as_ref().unwrap();
                 printlnex!("pick signer {:?}", signer.account.to_hexdetail());
@@ -301,7 +301,7 @@ impl BcosSDK {
         //println!("function : {:?}",function);
         let txinput = ContractABI::encode_function_input_to_abi_by_tokens(&function, params, &self.hashtype)?;
         let tx = self.make_transaction(to_address, &hex::encode(txinput), block_limit);
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "sendRawTransaction";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
         let hexdata = hex::encode(rawdata);
@@ -360,7 +360,7 @@ impl BcosSDK {
         let block_limit = self.getBlockLimit()?;
         let txinput = contract.encode_function_input_to_abi(methodname, params, true)?;
         let tx = self.make_transaction(to_address, &txinput.as_str(), block_limit);
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "sendRawTransactionAndGetProof";
         let rawdata = self.encode_sign_raw_tx(&tx.unwrap())?;
         let hexdata = hex::encode(&rawdata);
@@ -369,48 +369,6 @@ impl BcosSDK {
         Ok(value)
     }
 
-    ///编译合约。传入合约名字和配置文件路径
-    ///因为不需要连接节点，纯本地运行，采用静态方法实现，避免加载各种库，也无需连接网络
-    pub fn compile(contract_name:&str,configfile:&str)->Result<Output,KissError> {
 
-        let config = ClientConfig::load(configfile)?;
-        let mut solc_path = match config.chain.crypto {
-            BcosCryptoKind::ECDSA => {
-                config.contract.solc
-            },
-            BcosCryptoKind::GM => {
-                config.contract.solcgm
-            }
-        };
-        if cfg!(target_os = "windows")
-        {
-            solc_path = format!("{}.exe",solc_path);
-        }
-
-         if ! Path::new(solc_path.as_str()).exists()   {
-            return kisserr!(KissErrKind::EFileMiss,"solc [{}] is not exists,check the solc setting in config file [{}]",solc_path,configfile);
-         }
-
-        let mut solfullpath = PathBuf::from(&config.contract.contractpath);
-        let options = ["--abi", "--bin", "--bin-runtime", "--overwrite","--hashes"];
-        solfullpath = solfullpath.join(format!("{}.sol", contract_name));
-         if !  solfullpath.exists()  {
-            return kisserr!(KissErrKind::EFileMiss,"contract solfile [{}] is not exists,check the config setting in  [{}]->contractpath[{}]",
-                solfullpath.to_str().unwrap(),configfile,config.contract.contractpath);
-         }
-        info!("compile sol  {} ,use solc {},outputdir:{} options: {:?} ",
-                 solfullpath.to_str().unwrap(), solc_path, config.contract.contractpath.as_str(), options);
-        let outputres = Command::new(solc_path).
-            args(&options)
-            .arg("-o").arg(config.contract.contractpath.as_str())
-            .arg(solfullpath.to_str().unwrap())
-            .output();
-        info!("compile result : {:?}", &outputres);
-        match outputres {
-            Ok(out)=>{return Ok(out)}
-            Err(e)=>{return kisserr!(KissErrKind::Error,"compile [{}] error :{:?}",contract_name,e)}
-        }
-
-    }
 
 }

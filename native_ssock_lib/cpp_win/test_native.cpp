@@ -63,8 +63,8 @@ int main(int argc, char **argv)
 	printf("dll create return %d\n",p_ssock);
 	int retval = 0;
 	pfn_set_echo_mode(p_ssock, ECHO_PRINTF);
-	//pfn_init(p_ssock,"sdk/gmca.crt","sdk/gmsdk.crt","sdk/gmsdk.key","sdk/gmensdk.crt","sdk/gmensdk.key");
-	pfn_init(p_ssock,"sdk/ca.crt","sdk/sdk.crt","sdk/sdk.key","","");
+	pfn_init(p_ssock,"sdk/gmca.crt","sdk/gmsdk.crt","sdk/gmsdk.key","sdk/gmensdk.crt","sdk/gmensdk.key");
+	//pfn_init(p_ssock,"sdk/ca.crt","sdk/sdk.crt","sdk/sdk.key","","");
 	printf("ssock init ret %d\n",retval);
 	char ip[1024]="127.0.0.1";
 	int port = 20200;

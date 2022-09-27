@@ -59,7 +59,7 @@ pub fn json_hextoint(v: &JsonValue) -> Result<i32, KissError> {
 ///保持大小写和拼写一致，以便查找，局部不遵循rust命令规范
 impl BcosSDK {
     pub fn getBlockNumber(&mut self) -> Result<u32, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockNumber";
         let paramobj = json!([groupid]);
         let v: JsonValue = self.netclient.rpc_request_sync(cmd, &paramobj)?;
@@ -84,7 +84,7 @@ impl BcosSDK {
     }
 
     pub fn getNodeVersion(&mut self) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getClientVersion";
         let paramobj = json!([groupid]);
         let v: JsonValue = self.netclient.rpc_request_sync(cmd, &paramobj)?;
@@ -92,7 +92,7 @@ impl BcosSDK {
     }
 
     pub fn getNodeInfo(&mut self) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getNodeInfo";
         let paramobj = json!([groupid]);
         let v: JsonValue = self.netclient.rpc_request_sync(cmd, &paramobj)?;
@@ -109,7 +109,7 @@ impl BcosSDK {
     ///    "result": "0x1a0"
     ///}
     pub fn getPbftView(&mut self, groupid: u32) -> Result<i32, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getPbftView";
         let paramobj = json!([groupid]);
         let res = self.netclient.rpc_request_sync(cmd, &paramobj)?;
@@ -159,7 +159,7 @@ impl BcosSDK {
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getpeers
     pub fn getPeers(&mut self, groupid: u32) -> Result<JsonValue, KissError> {
         let cmd = "getPeers";
-        let paramobj = json!([self.config.chain.groupid]);
+        let paramobj = json!([self.config.bcos2.groupid]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
@@ -172,7 +172,7 @@ impl BcosSDK {
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getnodeidlist
     pub fn getNodeIDList(&mut self, groupid: u32) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getNodeIDList";
         let paramobj = json!([groupid]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
@@ -180,9 +180,9 @@ impl BcosSDK {
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getgrouplist
     pub fn getGroupList(&mut self) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getGroupList";
-        let paramobj = json!([self.config.chain.groupid]);
+        let paramobj = json!([self.config.bcos2.groupid]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
@@ -192,19 +192,19 @@ impl BcosSDK {
         num: u32,
         includeTransactions: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockByNumber";
         let hexnum = format!("0x{:02X}", num);
-        let paramobj = json!([self.config.chain.groupid, hexnum, includeTransactions]);
+        let paramobj = json!([self.config.bcos2.groupid, hexnum, includeTransactions]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getBlockHashByNumber
     pub fn getBlockHashByNumber(&mut self, num: u32) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockHashByNumber";
         let hexnum = format!("0x{:02X}", num);
-        let paramobj = json!([self.config.chain.groupid, hexnum.to_string()]);
+        let paramobj = json!([self.config.bcos2.groupid, hexnum.to_string()]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getblockbynumber
@@ -213,11 +213,11 @@ impl BcosSDK {
         num: u32,
         includeTransactions: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockHeaderByNumber";
         let hexnum = format!("0x{:02X}", num);
         let paramobj = json!([
-            self.config.chain.groupid,
+            self.config.bcos2.groupid,
             hexnum.to_string(),
             includeTransactions
         ]);
@@ -230,10 +230,10 @@ impl BcosSDK {
         blockhash: &str,
         includeTransactions: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockByHash";
         let paramobj = json!([
-            self.config.chain.groupid,
+            self.config.bcos2.groupid,
             blockhash.to_string(),
             includeTransactions
         ]);
@@ -246,10 +246,10 @@ impl BcosSDK {
         blockhash: &str,
         includeTransactions: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockHeaderByHash";
         let paramobj = json!([
-            self.config.chain.groupid,
+            self.config.bcos2.groupid,
             blockhash.to_string(),
             includeTransactions
         ]);
@@ -259,7 +259,7 @@ impl BcosSDK {
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#gettransactionreceipt
     pub fn getTransactionReceipt(&mut self, txhash: &str) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionReceipt";
         let paramobj = json!([groupid, txhash]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
@@ -297,7 +297,7 @@ impl BcosSDK {
         &mut self,
         txhash: &str,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionReceiptByHashWithProof";
         let paramobj = json!([groupid, txhash]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
@@ -317,7 +317,7 @@ impl BcosSDK {
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#gettransactionbyhash
     pub fn getTransactionByHash(&mut self, txhash: &str) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionByHash";
         let paramobj = json!([groupid, txhash]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
@@ -329,7 +329,7 @@ impl BcosSDK {
         blockhash: &str,
         index: u32,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionByBlockHashAndIndex";
         let indexhex = format!("0x{:02X}", index);
         let paramobj = json!([groupid, blockhash, indexhex]);
@@ -341,7 +341,7 @@ impl BcosSDK {
         blocknum: u32,
         index: u32,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionByBlockNumberAndIndex";
         let blocknum = format!("0x{:02X}", blocknum);
         let indexhex = format!("0x{:02X}", index);
@@ -351,7 +351,7 @@ impl BcosSDK {
 
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#gettransactionbyhashwithproof
     pub fn getTransactionByHashWithProof(&mut self, txhash: &str) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getTransactionByHashWithProof";
         let paramobj = json!([groupid, txhash]);
         self.netclient.rpc_request_sync(cmd, &paramobj)
@@ -435,7 +435,7 @@ impl BcosSDK {
         count: i32,
         compressFlag: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBatchReceiptsByBlockNumberAndRange";
         //params":[1,"0x1","0","-1",false]
         let blocknumhex = format!("0x{:X}", blockNumber);
@@ -456,7 +456,7 @@ impl BcosSDK {
         count: i32,
         compressFlag: bool,
     ) -> Result<JsonValue, KissError> {
-        let groupid = self.config.chain.groupid;
+        let groupid = self.config.bcos2.groupid;
         let cmd = "getBatchReceiptsByBlockHashAndRange";
         // curl -X POST --data '{"jsonrpc":"2.0","method":"getBatchReceiptsByBlockHashAndRange","params":[1,"0xcef82a3c1e7770aa4e388af5c70e97ae177a3617c5020ae052be4095dfdd39a2","0","1",false],"id":1}' http://127.0.0.1:8545 |jq
         let paramobj = json!([

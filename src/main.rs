@@ -17,27 +17,34 @@ mod console;
 use std::{env, thread};
 use crate::bcossdk::kisserror::{KissError,KissErrKind};
 use std::env::Args;
+use colored::Colorize;
 
-
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::bcossdk::BcosSDK;
+use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdk::BcosSDK;
 use std::time::Duration;
-use crate::bcossdk::bcossdkquery;
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::console::{console_account, console_contract};
-use crate::console::console_cmds;
-use crate::bcossdk::bcosclientconfig::ClientConfig;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcossdkquery;
+use fisco_bcos_rust_gears_sdk::bcossdk::contracthistory::ContractHistory;
+use crate::console::{console_account, console_bcos2_contract, console_compile};
+use crate::console::console_cmdmap;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcosclientconfig::ClientConfig;
 use log::info;
-use crate::bcossdk::cli_common::{Cli};
+use console::cli_common::{Cli};
 use structopt::StructOpt;
-use crate::bcossdk::bcos_channel_threads_worker;
-use crate::bcossdk::eventhandler;
+use fisco_bcos_rust_gears_sdk::bcossdk::bcos_channel_threads_worker;
+use fisco_bcos_rust_gears_sdk::bcossdk::eventhandler;
 use fisco_bcos_rust_gears_sdk::bcossdk::macrodef::set_debugprint;
 use fisco_bcos_rust_gears_sdk::bcossdk::bcos_channel_tassl_sock_ffi;
+use fisco_bcos_rust_gears_sdk::bcos3sdk::bcos3sdkwrapper;
+use crate::console::console_bcos2_query::Bcos2Query;
+use crate::console::console_bcos3_contracts::Bcos3Contract;
+use crate::console::console_bcos3_query::Bcos3Query;
+use crate::console_bcos2_contract::Bcos2Contract;
+use crate::sample::demo_bcos3event;
+
 #[tokio::main]
 pub async fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    let cli:Cli = Cli::from_args();
+    let mut cli:Cli = Cli::from_args();
     info!("start with cli {:?}",&cli);
     println!("console input {:?}",&cli);
     if cli.verbos > 0{
@@ -70,24 +77,9 @@ pub async fn main() {
             bcossdk::bcossdkquery::demo_query();
         }
 
-        "deploy"=>{
-            println!("deploy contract ");
-            let res = console_contract::deploy(&cli);
-            println!("{:?}",res)
-        }
-        "sendtx"=>{
-
-            let res = console_contract::sendtx(&cli);
-            println!("send tx result : {:?}",res);
-        }
-        "call"=>{
-            let res = console_contract::call(&cli);
-            println!("call contract result : {:?}",res);
-
-        }
         "compile"=>{
-            let res = console_contract::compile(&cli);
-            println!("compile contract result : {:?}",res);
+            let res = console_compile::console_compile(&cli);
+            println!("compile contract done!" );
         }
 
         "demogmsign"=>{
@@ -105,9 +97,6 @@ pub async fn main() {
         "usage"=>{
             console::usage::usage(&cli);
         }
-        "group"=>{
-            let res = sample::groupdemo::demo(&cli);
-        }
         "structdemo"=>{
             let res = sample::structdemo::demo(&cli);
         }
@@ -122,10 +111,82 @@ pub async fn main() {
         "ssock_ffi"=>{
             bcos_channel_tassl_sock_ffi::test_ssock();
         }
-        _=>{
-            let res = console_cmds::handle_cmd(&cli);
-            println!("console cmd result : {:?}",res);
+        "bcos3get"=>{
+           sample::bcos3rpc::test_bcos3sdk();
+        }
+        "bcos3tx"=>{
+            sample::bcos3tx::test_bcos3tx();
+        }
+        "bcos3client"=>{
+            sample::demo_bcos3client::demo_bcos3client(cli).unwrap();
+        }
+        "test_toml"=>{
+            bcossdk::contracthistory::test_toml();
+        }
 
+        "bcos2"=>{
+            let bcos2query =  Bcos2Query::new();
+            let bcos2contract = Bcos2Contract::new();
+            println!("{}","\n>---BCOS2 console---<\n".green());
+            if cli.params.len() ==0 {
+                println!("{}","-->!! NO Enough params !!<<--".red());
+                println!("Input: bcos3 [cmd] [params]");
+                println!("eg:cargo run  bcos 3 getBlockByNumber 5");
+                bcos2query.cmdmap.print_cmds(true);
+                bcos2contract.cmdmap.print_cmds(true);
+                return ;
+            }
+            let cmd = cli.params.get(0).unwrap().clone();
+            cli.params.remove(0);
+            cli.cmd = cmd.clone();
+
+            if bcos2query.cmdmap.in_cmd(cmd.as_str()) {
+                let r = bcos2query.cmdmap.handle_cmd(&cli);
+                if r.is_err(){println!("console : {:?}",r); }
+            }else if bcos2contract.cmdmap.in_cmd(cmd.as_str()){
+                let r = bcos2contract.cmdmap.handle_cmd(&cli);
+                if r.is_err(){println!("console : {:?}",r); }
+            }else{
+                bcos2query.cmdmap.print_cmds(true);
+                bcos2contract.cmdmap.print_cmds(true);
+                return ;
+            }
+        }
+        "bcos3"=>{
+            let bcos3query =  Bcos3Query::new();
+            let bcos3contract = Bcos3Contract::new();
+            println!("{}","\n>---BCOS3 console---<\n".yellow());
+            if cli.params.len() ==0 {
+                println!("{}","-->!! NO Enough params !!<<--".red());
+                println!("Input: bcos3 [cmd] [params]");
+                println!("eg:cargo run  bcos 3 getBlockByNumber 5");
+                bcos3query.cmdmap.print_cmds(true);
+                bcos3contract.climap.print_cmds(true);
+                return ;
+            }
+            let cmd = cli.params.get(0).unwrap().clone();
+            cli.params.remove(0);
+            cli.cmd = cmd.clone();
+
+            if bcos3query.cmdmap.in_cmd(cmd.as_str()) {
+                let r = bcos3query.cmdmap.handle_cmd(&cli);
+                if r.is_err(){println!("console : {:?}",r); }
+            }else if bcos3contract.climap.in_cmd(cmd.as_str()){
+                let r = bcos3contract.climap.handle_cmd(&cli);
+                if r.is_err(){println!("console : {:?}",r); }
+            }else{
+                bcos3query.cmdmap.print_cmds(true);
+                bcos3contract.climap.print_cmds(true);
+                return ;
+            }
+        }
+        "bcos3event"=>{
+            let res = demo_bcos3event::demo_event(&cli);
+            println!("res {:?}",res);
+        }
+        _=>{
+            println!("unhandle cmd {:?}",cli);
+            console::usage::usage(&cli);
         }
     }
 

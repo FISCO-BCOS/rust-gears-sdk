@@ -1,4 +1,3 @@
-#![feature(in_band_lifetimes)]
 #![allow(
     clippy::unreadable_literal,
     clippy::upper_case_acronyms,
@@ -12,6 +11,7 @@
 )]
 
 pub mod bcossdk;
+pub mod bcos3sdk;
 
 
 #[cfg(test)]
@@ -19,7 +19,7 @@ mod tests {
 //set RUST_TEST_NOCAPTURE=1
     use crate::bcossdk::kisserror::{ KissError};
     use crate::bcossdk::bcossdk::BcosSDK;
-    use crate::bcossdk::cli_common::Cli;
+    use fisco_bcos_rust_gears_sdk::console::cli_common::Cli;
     use structopt::StructOpt;
     use crate::bcossdk;
 

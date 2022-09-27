@@ -23,12 +23,26 @@ use failure::{AsFail, Fail};
 #[macro_export]
 macro_rules! kisserr {
             ($x:expr,$($arg:tt)*) => {
-                Err(crate::bcossdk::kisserror::KissError::new(
+                Err(KissError::new(
                     ($x),
-                    format!($($arg)*)
-                ));
+                    -1,
+                    format!($($arg)*).as_str()
+                ))
             };
 }
+
+#[macro_export]
+macro_rules! kisserrcode {
+            ($x:expr,$code:expr,$($arg:tt)*) => {
+                Err(KissError::new(
+                    ($x),
+                    ($code),
+                    format!($($arg)*).as_str()
+                ))
+            };
+}
+
+
 
 //Kiss: Keep It Simple & Stupid
 #[derive(Fail, Clone, Debug, Eq, PartialEq)]
@@ -41,6 +55,8 @@ pub enum KissErrKind {
     EFormat,
     #[fail(display = "net work error")]
     ENetwork,
+    #[fail(display = "timeout")]
+    ETimeout,
     #[fail(display = "sign fail")]
     ESign,
     #[fail(display = "try again")]
@@ -64,6 +80,7 @@ impl Default for KissErrKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KissError {
     pub kind: KissErrKind,
+    pub code: i64,
     pub msg: String,
 }
 
@@ -71,11 +88,12 @@ impl KissError {
     pub fn err(kind: KissErrKind) -> KissError {
         KissError {
             kind: kind,
+            code:0,
             msg: "".to_string(),
         }
     }
-    pub fn new(kind: KissErrKind, msg: String) -> KissError {
-        KissError { kind, msg }
+    pub fn new(kind: KissErrKind, code:i64 ,msg: &str) -> KissError {
+        KissError { kind:kind, code:code,msg:msg.to_string() }
     }
 }
 
