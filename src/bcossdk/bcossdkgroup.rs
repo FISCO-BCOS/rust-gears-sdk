@@ -41,8 +41,15 @@ impl BcosSDK {
     // }
     pub fn generateGroup(&mut self,groupid:u32,sealers:&Vec<String>,enable_free_storage:bool)->Result<JsonValue, KissError> {
         let cmd = "generateGroup";
-        let timestamp =  Local::now().timestamp_millis();
-        let paramobj = json!([groupid,timestamp,sealers,enable_free_storage]);
+        let timestamp =  format!("{}", Local::now().timestamp_millis());
+        let paramobj = json!([
+            groupid,
+            {
+                "timestamp": timestamp,
+                "sealers": sealers,
+                "enable_free_storage": enable_free_storage
+            }
+        ]);
         let v: JsonValue = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(v["result"].clone())
     }
