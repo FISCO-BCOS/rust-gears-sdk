@@ -170,7 +170,7 @@ impl IBcosChannel  for BcosSSLClient {
         //ssl 握手连接
         let nio_res = ssl_stream.get_ref().set_nonblocking(false);
         let res = ssl_stream.connect();
-        println!("SSL Stream connect result {:?}", &res);
+        //println!("SSL Stream connect result {:?}", &res);
         match res {
             Ok(s) => (),
             Err(e) => {
