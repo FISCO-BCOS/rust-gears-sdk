@@ -16,7 +16,9 @@ log/
 *.bin
 *.bin-runtime
 *.exe
+*.lib
 *.dll
+*.dylib
 *.a
 *.so
 *.ini 

@@ -284,6 +284,7 @@ int TasslSockWrap::init(const char *ca_crt_file_,
 				const char * en_key_file_
 					)
 {
+    altprint(echo_mode,"[in cpp wrap -->] %s\n",OPENSSL_VERSION_TEXT);
     altprint(echo_mode,"[in cpp wrap -->] TasslSockWrap:init %s,%s,%s,%s,%s\n",ca_crt_file_,sign_crt_file_,sign_key_file_,en_crt_file_,en_key_file_);
 	strcpy(ca_crt_file,ca_crt_file_);
 	strcpy(sign_crt_file,sign_crt_file_);
