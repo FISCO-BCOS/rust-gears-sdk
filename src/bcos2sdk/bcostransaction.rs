@@ -23,10 +23,11 @@ use std::str::FromStr;
 use ethereum_types::{Address, H256, H512, U256};
 use rlp::{self, DecoderError, Rlp, RlpStream};
 
-use crate::bcossdk::accountutil::{EcdsaAccountUtil, IBcosAccountUtil};
-use crate::bcossdk::commonhash::{CommonHash, HashType};
-use crate::bcossdk::commonsigner::{CommonSignature, CommonSignerWeDPR_Secp256, ICommonSigner};
-use crate::bcossdk::kisserror::KissError;
+use crate::bcossdkutil::accountutil::{EcdsaAccountUtil, IBcosAccountUtil};
+use crate::bcossdkutil::commonhash::{CommonHash, HashType};
+use crate::bcossdkutil::commonsigner::{CommonSignature, CommonSignerWeDPR_Secp256, ICommonSigner};
+use crate::bcossdkutil::kisserror::KissError;
+use crate::printlnex;
 use std::convert::TryInto;
 
 ///fisco bcos的交易结构，重点关注random_id,block_limit,chain_id,grou_id
@@ -81,7 +82,7 @@ impl BcosTransaction {
         stream.begin_list(listsize);
         self.rlp_append_tx_elements(&mut stream);
         let encodebytes: Vec<u8> = stream.drain();
-        printlnex!("plain transaction encode size {}",encodebytes.len());
+        printlnex!("plain transaction encode size {}", encodebytes.len());
         encodebytes
     }
 
@@ -127,7 +128,7 @@ impl BcosTransactionWithSig {
         self.transaction.rlp_append_tx_elements(&mut stream);
         self.rlp_append_signature(&mut stream);
         let encodebytes = stream.drain();
-        printlnex!("Signed transaction encode size {}",encodebytes.len());
+        printlnex!("Signed transaction encode size {}", encodebytes.len());
         encodebytes
     }
 

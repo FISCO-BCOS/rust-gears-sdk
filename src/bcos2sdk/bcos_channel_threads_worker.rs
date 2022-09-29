@@ -1,57 +1,54 @@
 #![allow(
-clippy::unreadable_literal,
-clippy::upper_case_acronyms,
-dead_code,
-non_camel_case_types,
-non_snake_case,
-non_upper_case_globals,
-overflowing_literals,
-unused_variables,
-unused_assignments
+    clippy::unreadable_literal,
+    clippy::upper_case_acronyms,
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    overflowing_literals,
+    unused_variables,
+    unused_assignments
 )]
 
-//use crate::bcossdk::bcos_ssl_native::BcosNativeTlsClient;
-//use crate::bcossdk::bcos_ssl_normal::BcosSSLClient;
-//use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
-//use crate::bcossdk::bufferqueue::BufferQueue;
-use crate::bcossdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
-//use crate::bcossdk::kisserror::{KissErrKind, KissError};
-use std::time::Duration;
-use tokio::sync::{mpsc};
-use tokio::sync::mpsc::{Sender};
-use crate::bcossdk::bcossdk::BcosSDK;
-use std::sync::{Arc, Mutex};
+//use crate::bcossdkutil::bcos_ssl_native::BcosNativeTlsClient;
+//use crate::bcossdkutil::bcos_ssl_normal::BcosSSLClient;
+//use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
+//use crate::bcossdkutil::bufferqueue::BufferQueue;
+use crate::bcos2sdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
+//use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::bcos2sdk::bcos2client::Bcos2Client;
+use crate::bcos2sdk::bcos_channel_handler_manager::ChannelPushHandlerManager;
+use crate::bcos2sdk::bcosrpcwraper::RpcRequestData;
+use crate::bcossdkutil::kisserror::KissError;
 use lazy_static::lazy_static;
+use serde_json::json;
 use std::collections::HashMap;
-use serde_json::{json};
-use crate::bcossdk::bcosrpcwraper::RpcRequestData;
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::bcos_channel_handler_manager::ChannelPushHandlerManager;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::Sender;
 
-type BcosSDKArc = Arc<Mutex<BcosSDK>>;
+type BcosSDKArc = Arc<Mutex<Bcos2Client>>;
 type BcosChannelWorkerArc = Arc<Mutex<BcosChannelWorker>>;
-type BcosSDKMap = Arc<Mutex<HashMap<String, BcosSDK>>>;
+type BcosSDKMap = Arc<Mutex<HashMap<String, Bcos2Client>>>;
 lazy_static! {
     static ref BCOS_SDK_MAP: BcosSDKMap = {
-        let sdkmap:BcosSDKMap = Arc::new(Mutex::new(HashMap::new()));
+        let sdkmap: BcosSDKMap = Arc::new(Mutex::new(HashMap::new()));
         sdkmap
     };
-    }
-
+}
 
 ///用线程模式读写channel连接上的数据，并回调处理者
-pub struct BcosChannelWorker
-{
-    pub bcossdk: BcosSDK,
+pub struct BcosChannelWorker {
+    pub bcossdk: Bcos2Client,
     pub handlemanager: ChannelPushHandlerManager,
     pub is_working: bool,
 }
 
-impl BcosChannelWorker
-{
+impl BcosChannelWorker {
     pub fn new(configfile: &str) -> Self {
         BcosChannelWorker {
-            bcossdk: BcosSDK::new_from_config(configfile).unwrap(),
+            bcossdk: Bcos2Client::new_from_config(configfile).unwrap(),
             handlemanager: ChannelPushHandlerManager::default(),
             is_working: true,
         }
@@ -65,14 +62,19 @@ pub fn read_packets(worker_arc: &BcosChannelWorkerArc) -> Result<Vec<ChannelPack
     worker.bcossdk.netclient.channel_client.read_packets()
 }
 
-pub fn send_packet(worker_arc: &BcosChannelWorkerArc, pack: &ChannelPack) -> Result<i32, KissError>
-{
+pub fn send_packet(
+    worker_arc: &BcosChannelWorkerArc,
+    pack: &ChannelPack,
+) -> Result<i32, KissError> {
     let mut worker = worker_arc.lock().unwrap();
-    worker.bcossdk.netclient.channel_client.try_send(&pack.pack())
+    worker
+        .bcossdk
+        .netclient
+        .channel_client
+        .try_send(&pack.pack())
 }
 
-fn is_working(worker_arc: &BcosChannelWorkerArc) -> bool
-{
+fn is_working(worker_arc: &BcosChannelWorkerArc) -> bool {
     let worker = worker_arc.lock().unwrap();
     let working = worker.is_working;
     working
@@ -108,8 +110,7 @@ async fn read_thread(worker_arc: BcosChannelWorkerArc, tx: &Sender<ChannelPack>)
     println!("read thread done!!!")
 }
 
-pub fn getNodeVersionPack() -> Option<ChannelPack>
-{
+pub fn getNodeVersionPack() -> Option<ChannelPack> {
     let groupid = 1;
     let cmd = "getClientVersion";
     let params_value = json!([groupid]);
@@ -130,11 +131,9 @@ async fn heart_beat_thread(worker_arc: BcosChannelWorkerArc) {
 
     loop {
         tokio::time::sleep(Duration::from_millis(100)).await;
-        if !is_working(&worker_arc)
-        {
+        if !is_working(&worker_arc) {
             break;
         }
-
 
         if time::now() - last_heartbeat_time < chrono::Duration::seconds(5) {
             continue;
@@ -142,11 +141,14 @@ async fn heart_beat_thread(worker_arc: BcosChannelWorkerArc) {
         //let heartbeatpack = make_channel_pack(CHANNEL_PACK_TYPE::HEART_BEAT, "");
         let heartbeatpack = getNodeVersionPack();
         last_heartbeat_time = time::now();
-        println!("heartbeat send {:?}", heartbeatpack.as_ref().unwrap().detail());
+        println!(
+            "heartbeat send {:?}",
+            heartbeatpack.as_ref().unwrap().detail()
+        );
         let res = send_packet(&worker_arc, &heartbeatpack.unwrap());
 
         println!("heartbeat send result {:?}", res);
-        //let recvres = worker.bcossdk.netclient.channel_client.try_recv();
+        //let recvres = worker.bcossdkutil.netclient.channel_client.try_recv();
         //println!("heartbeat recv result {:?}",recvres);
     }
     println!("heartbeat thread done!!")
@@ -162,7 +164,7 @@ pub async fn start(configfile: &str) {
 pub fn handle_packet(worker_arc: &BcosChannelWorkerArc, pack: &ChannelPack) {
     println!(">>>handle packet {}", pack.detail());
     let worker = worker_arc.lock().unwrap();
-    println!("worker ->>>> {}",worker.handlemanager.count_handler());
+    println!("worker ->>>> {}", worker.handlemanager.count_handler());
     let handleOpt = worker.handlemanager.get_handle(&pack.packtype);
     match handleOpt {
         Some(handle) => {
@@ -174,8 +176,7 @@ pub fn handle_packet(worker_arc: &BcosChannelWorkerArc, pack: &ChannelPack) {
     }
 }
 
-pub async fn start_bcos_channel_worker(worker_arc: &Arc<Mutex<BcosChannelWorker>>)
-{
+pub async fn start_bcos_channel_worker(worker_arc: &Arc<Mutex<BcosChannelWorker>>) {
     println!("start worker");
     let (readthread_sender, mut readthread_recver) = mpsc::channel::<ChannelPack>(32);
 
@@ -208,7 +209,6 @@ pub async fn start_bcos_channel_worker(worker_arc: &Arc<Mutex<BcosChannelWorker>
                 handle_packet(&worker_local, &pack);
 
                 if counter > 100 {
-
                     println!("shutdown threads");
                     //worker_local = worker_arc.clone();
                     worker_local.lock().unwrap().is_working = false;

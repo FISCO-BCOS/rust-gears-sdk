@@ -1,52 +1,50 @@
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::bcosclientconfig::ClientConfig;
+use crate::bcossdkutil::bcosclientconfig::ClientConfig;
+use crate::bcossdkutil::kisserror::KissError;
 use structopt::StructOpt;
-#[derive(StructOpt,Debug)]
+#[derive(StructOpt, Debug)]
 #[structopt(about = "Fisco Bcos rust sdk console")]
 pub struct Cli {
-     /// 操作指令字，如 usage,deploy，sendtx，call，account，getXXX等.
-     ///
-     /// 输入 usage account/contract/get/all 查看对应的指令列表
-     ///
-     ///
-     pub cmd: String,
-     ///
-     /// 当前操作的参数,根据操作命令字的不同会有所变化
-     //#[structopt(parse(from_os_str))]
-    pub params : Vec<String>,
+    /// 操作指令字，如 usage,deploy，sendtx，call，account，getXXX等.
+    ///
+    /// 输入 usage account/contract/get/all 查看对应的指令列表
+    ///
+    ///
+    pub cmd: String,
+    ///
+    /// 当前操作的参数,根据操作命令字的不同会有所变化
+    //#[structopt(parse(from_os_str))]
+    pub params: Vec<String>,
     ///-c 配置文件，全路径如-c conf/config.toml
-    #[structopt(short = "c", long = "config") ]
-    pub configfile : Option<String>,
+    #[structopt(short = "c", long = "config")]
+    pub configfile: Option<String>,
     ///-n 显式的指定合约名，不用带后缀，如"HelloWorld"
     #[structopt(short = "n", long = "contractname")]
-    pub contractname : Option<String>,
+    pub contractname: Option<String>,
     ///-v -vv -vvv...打开详细的打印
-    #[structopt(short = "v",parse(from_occurrences))]
-    pub verbos : u32,
+    #[structopt(short = "v", parse(from_occurrences))]
+    pub verbos: u32,
 }
 
-#[derive(StructOpt,Debug)]
+#[derive(StructOpt, Debug)]
 #[structopt(about = "sendtx or call to contract")]
-#[structopt(help="")]
+#[structopt(help = "")]
 pub struct OptContract {
-    pub contract_name:String,
-    pub address:String,
-    pub method:String,
-    pub params:Vec<String>
+    pub contract_name: String,
+    pub address: String,
+    pub method: String,
+    pub params: Vec<String>,
 }
 
-
-impl  Cli{
-    pub fn default_configfile(&self)->String{
-        let configfile = match &self.configfile{
-            Option::None =>{"conf/config.toml"},
-            Some(f)=>{f.as_str()}
+impl Cli {
+    pub fn default_configfile(&self) -> String {
+        let configfile = match &self.configfile {
+            Option::None => "conf/config.toml",
+            Some(f) => f.as_str(),
         };
         configfile.to_string()
     }
-    pub fn default_config(&self)->Result<ClientConfig,KissError>{
-        let configfile =self.default_configfile();
+    pub fn default_config(&self) -> Result<ClientConfig, KissError> {
+        let configfile = self.default_configfile();
         ClientConfig::load(configfile.as_str())
     }
-
 }

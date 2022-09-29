@@ -3,16 +3,21 @@
 */
 use std::ffi::{c_char, CStr};
 
-use crate::bcos3sdk::bcos3sdkresponse::{Bcos3SDKResponse, bcos_sdk_c_struct_response};
+use crate::bcos3sdk::bcos3sdkresponse::{bcos_sdk_c_struct_response, Bcos3SDKResponse};
 
-#[cfg(feature = "bcos3sdk_ffi")]
-pub extern "C" fn amop_sub_callback(endpoint: *const c_char, seq: *const c_char, resp: *const bcos_sdk_c_struct_response)
-{
+pub extern "C" fn amop_sub_callback(
+    endpoint: *const c_char,
+    seq: *const c_char,
+    resp: *const bcos_sdk_c_struct_response,
+) {
     unsafe {
         let mut endpointStr = "".to_string();
         let mut seqStr = "".to_string();
         if !endpoint.is_null() {
-            endpointStr = CStr::from_ptr(endpoint.clone()).to_str().unwrap().to_string();
+            endpointStr = CStr::from_ptr(endpoint.clone())
+                .to_str()
+                .unwrap()
+                .to_string();
         }
         if !seq.is_null() {
             seqStr = CStr::from_ptr(seq.clone()).to_str().unwrap().to_string();
@@ -21,4 +26,3 @@ pub extern "C" fn amop_sub_callback(endpoint: *const c_char, seq: *const c_char,
         //println!("endpoint {},seq {}", endpointStr, seqStr);
     }
 }
-

@@ -10,26 +10,24 @@
 */
 
 use std::ffi::c_void;
-use std::sync::mpsc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 
 use serde_json::Value as JsonValue;
 
-use crate::bcos3sdk::bcos3sdkresponse::{Bcos3SDKResponse, bcos_sdk_c_struct_response};
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcos3sdk::bcos3sdkresponse::{bcos_sdk_c_struct_response, Bcos3SDKResponse};
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 use crate::kisserrcode;
 
-#[cfg(feature = "bcos3sdk_ffi")]
 #[repr(C)]
 #[derive(Debug)]
-pub struct Bcos3SDKFuture
-{
+pub struct Bcos3SDKFuture {
     pub seq: u64,
     pub name: String,
     pub desc: String,
-    pub timeout:u64, //等待返回的超时，默认为5秒，可以动态修改或配置化
+    pub timeout: u64, //等待返回的超时，默认为5秒，可以动态修改或配置化
     // 描述
     pub tx: Sender<Bcos3SDKResponse>,
     pub rx: Receiver<Bcos3SDKResponse>,
@@ -37,15 +35,12 @@ pub struct Bcos3SDKFuture
 
 static gSeq: AtomicU64 = AtomicU64::new(0);
 
-#[cfg(feature = "bcos3sdk_ffi")]
 impl Bcos3SDKFuture {
-
     pub fn next_seq() -> u64 {
         gSeq.fetch_add(1, Ordering::Relaxed)
     }
     //使用mpsc::channel组件实现异步回调的等待
-    pub fn create(seq: u64, name: &str, desc: &str) -> Self
-    {
+    pub fn create(seq: u64, name: &str, desc: &str) -> Self {
         let (tx, rx) = mpsc::channel();
 
         let future_context = Bcos3SDKFuture {
@@ -73,20 +68,20 @@ impl Bcos3SDKFuture {
         return c as *const Bcos3SDKFuture as *const c_void;
     }
 
-    pub fn from_c_ptr(ptr: *const c_void) -> *const Bcos3SDKFuture
-    {
+    pub fn from_c_ptr(ptr: *const c_void) -> *const Bcos3SDKFuture {
         return ptr as *const Bcos3SDKFuture;
     }
 
-
     pub fn display(&self) {
-        println!(">>>> context data:{},[{}],[{}]", self.seq, self.name, self.desc);
+        println!(
+            ">>>> context data:{},[{}],[{}]",
+            self.seq, self.name, self.desc
+        );
     }
-
 
     //在rust里，要给c的回调传入method, not a field，跟python sdk的实现对比，和python可以将某个对象的方法地址传给c不同了。
     //所以在这个回调方法里，reponse 里的context给的是future本身，以实例化该对象后，进行异步应答（mpsc::channel)
-    #[cfg(feature = "bcos3sdk_ffi")]
+
     pub extern "C" fn bcos_callback(resp: *const bcos_sdk_c_struct_response) {
         unsafe {
             let response = Bcos3SDKResponse::from_callback(resp);
@@ -102,11 +97,17 @@ impl Bcos3SDKFuture {
 
     pub fn wait(&self) -> Result<Bcos3SDKResponse, KissError> {
         //超时默认设定为5秒，可以修改
-        let res = self.rx.recv_timeout(std::time::Duration::from_secs(self.timeout));
+        let res = self
+            .rx
+            .recv_timeout(std::time::Duration::from_secs(self.timeout));
         //println!("wait res {:?}",&res);
         match res {
-            Ok(v) => { return Ok(v); }
-            Err(e) => { return kisserrcode!(KissErrKind::ETimeout,-1,"timeout"); }
+            Ok(v) => {
+                return Ok(v);
+            }
+            Err(e) => {
+                return kisserrcode!(KissErrKind::ETimeout, -1, "timeout");
+            }
         }
     }
     pub fn wait_result(&self) -> Result<JsonValue, KissError> {

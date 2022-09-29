@@ -1,6 +1,5 @@
-use ethabi::{param_type::ParamType, Error as ABIError, token::{Token}, Uint};
-use crate::bcossdk::liteutils::split_param;
-
+use crate::bcossdkutil::liteutils::split_param;
+use ethabi::{param_type::ParamType, token::Token, Error as ABIError, Uint};
 
 pub trait ABITokenizer {
     /// Tries to parse a string as a token of given type.
@@ -11,17 +10,25 @@ pub trait ABITokenizer {
             ParamType::String => Self::tokenize_string(value).map(Token::String),
             ParamType::Bool => Self::tokenize_bool(value).map(Token::Bool),
             ParamType::Bytes => Self::tokenize_bytes(value).map(Token::Bytes),
-            ParamType::FixedBytes(len) => Self::tokenize_fixed_bytes(value, len).map(Token::FixedBytes),
+            ParamType::FixedBytes(len) => {
+                Self::tokenize_fixed_bytes(value, len).map(Token::FixedBytes)
+            }
             ParamType::Uint(_) => Self::tokenize_uint(value).map(Into::into).map(Token::Uint),
             ParamType::Int(_) => Self::tokenize_int(value).map(Into::into).map(Token::Int),
             ParamType::Array(ref p) => Self::tokenize_array(value, p).map(Token::Array),
-            ParamType::FixedArray(ref p, len) => Self::tokenize_fixed_array(value, p, len).map(Token::FixedArray),
+            ParamType::FixedArray(ref p, len) => {
+                Self::tokenize_fixed_array(value, p, len).map(Token::FixedArray)
+            }
             ParamType::Tuple(ref p) => Self::tokenize_struct(value, p).map(Token::Tuple),
         }
     }
 
     /// Tries to parse a value as a vector of tokens of fixed size.
-    fn tokenize_fixed_array(value: &str, param: &ParamType, len: usize) -> Result<Vec<Token>, ABIError> {
+    fn tokenize_fixed_array(
+        value: &str,
+        param: &ParamType,
+        len: usize,
+    ) -> Result<Vec<Token>, ABIError> {
         let result = Self::tokenize_array(value, param)?;
         match result.len() == len {
             true => Ok(result),
@@ -32,12 +39,14 @@ pub trait ABITokenizer {
     ///传入字符串数组，vec!("pet288".to_string(), "314".to_string())，
     /// 参数定义数组：vec!(Box::new(ParamType::String), Box::new(ParamType::Uint(256)))
     /// 解析出一个结构体tuple
-    fn tokenize_struct_by_str_array(paramstr_array: &Vec<String>, param: &Vec<Box<ParamType>>) -> Result<Vec<Token>, ABIError> {
-        let mut result: Vec<Token> = vec!();
+    fn tokenize_struct_by_str_array(
+        paramstr_array: &Vec<String>,
+        param: &Vec<Box<ParamType>>,
+    ) -> Result<Vec<Token>, ABIError> {
+        let mut result: Vec<Token> = vec![];
         let mut params = param.iter();
         //println!("tokenize_struct_by_array paramstr_array {:?},param {:?}",paramstr_array,param);
-        for sub in paramstr_array
-        {
+        for sub in paramstr_array {
             //println!("tokenize_struct_by_array sub {:?}",sub);
             let param = params.next().ok_or(ABIError::InvalidData)?;
             //println!("to tokenize: {:?}",param);
@@ -48,7 +57,10 @@ pub trait ABITokenizer {
     }
     /// Tried to parse a struct as a vector of tokens
     /// 传入的是('pet288',"314")这样的字符串文本
-    fn tokenize_struct(value: &str, paramtypes: &Vec<Box<ParamType>>) -> Result<Vec<Token>, ABIError> {
+    fn tokenize_struct(
+        value: &str,
+        paramtypes: &Vec<Box<ParamType>>,
+    ) -> Result<Vec<Token>, ABIError> {
         let inputstr = value.trim_start_matches("(");
         let inputstr = inputstr.trim_end_matches(")");
 
@@ -63,9 +75,8 @@ pub trait ABITokenizer {
         let inputstr = inputstr.trim_end_matches("]");
 
         let paramstr_array = split_param(inputstr);
-        let mut result: Vec<Token> = vec!();
-        for sub in paramstr_array
-        {
+        let mut result: Vec<Token> = vec![];
+        for sub in paramstr_array {
             let token = Self::tokenize(param, sub.as_str())?;
             result.push(token);
         }
@@ -94,7 +105,6 @@ pub trait ABITokenizer {
     fn tokenize_int(value: &str) -> Result<[u8; 32], ABIError>;
 }
 
-
 pub struct ABIStrictTokenizer;
 
 impl ABITokenizer for ABIStrictTokenizer {
@@ -102,7 +112,7 @@ impl ABITokenizer for ABIStrictTokenizer {
         let hexres = hex::decode(value);
         let hex = match hexres {
             Ok(h) => h,
-            Err(e) => return Err(ABIError::InvalidData)
+            Err(e) => return Err(ABIError::InvalidData),
         };
         match hex.len() == 20 {
             false => Err(ABIError::InvalidData),
@@ -130,7 +140,7 @@ impl ABITokenizer for ABIStrictTokenizer {
         let vres = hex::decode(value);
         match vres {
             Ok(v) => return Ok(v),
-            Err(e) => return Err(ABIError::InvalidData)
+            Err(e) => return Err(ABIError::InvalidData),
         };
     }
 
@@ -138,7 +148,7 @@ impl ABITokenizer for ABIStrictTokenizer {
         let hexres = hex::decode(value);
         let hex = match hexres {
             Ok(h) => h,
-            Err(e) => return Err(ABIError::InvalidData)
+            Err(e) => return Err(ABIError::InvalidData),
         };
         match hex.len() == len {
             true => Ok(hex),
@@ -150,7 +160,7 @@ impl ABITokenizer for ABIStrictTokenizer {
         let hexres = hex::decode(value);
         let hex = match hexres {
             Ok(h) => h,
-            Err(e) => return Err(ABIError::InvalidData)
+            Err(e) => return Err(ABIError::InvalidData),
         };
         match hex.len() == 32 {
             true => {
@@ -166,7 +176,6 @@ impl ABITokenizer for ABIStrictTokenizer {
         Self::tokenize_uint(value)
     }
 }
-
 
 pub struct ABILenientTokenizer;
 
@@ -228,4 +237,3 @@ impl ABITokenizer for ABILenientTokenizer {
         Ok(int.into())
     }
 }
-

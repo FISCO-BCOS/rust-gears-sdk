@@ -21,10 +21,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Result as JsonResult, Value as JsonValue};
 
-use crate::bcossdk::bcos_channel_client::{BcosChannelClient, IBcosChannel};
-use crate::bcossdk::bcosclientconfig::{BcosClientProtocol, ClientConfig};
-use crate::bcossdk::bcoshttpclient::HttpJsonRpcClient;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcos2sdk::bcos_channel_client::{BcosChannelClient, IBcosChannel};
+use crate::bcos2sdk::bcoshttpclient::HttpJsonRpcClient;
+use crate::bcossdkutil::bcosclientconfig::{BcosClientProtocol, ClientConfig};
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, printlnex};
 
 ///对应json rpc的request json格式
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -80,15 +81,14 @@ pub struct BcosRPC {
 impl BcosRPC {
     pub fn new(config: &ClientConfig) -> Result<BcosRPC, KissError> {
         //默认建一个json rpc的对象
-         //           printlnex!("new channel_client");
+        //           printlnex!("new channel_client");
         let mut jsonrpc_client = HttpJsonRpcClient::new();
         jsonrpc_client.target_url = config.rpc.url.clone();
         jsonrpc_client.timeout = config.rpc.timeout;
-        let channel_client:BcosChannelClient;
+        let channel_client: BcosChannelClient;
         if config.bcos2.protocol == BcosClientProtocol::CHANNEL {
             channel_client = BcosChannelClient::new(&config.channel)?;
-        }else{
-
+        } else {
             channel_client = BcosChannelClient::default(&config.channel);
             printlnex!("done channel_client");
         }
@@ -107,7 +107,13 @@ impl BcosRPC {
         match self.config.bcos2.protocol {
             BcosClientProtocol::RPC => self.jsonrpc_client.request_sync(&outbuffer),
             BcosClientProtocol::CHANNEL => self.channel_client.request_sync(&outbuffer),
-            _=>{return kisserr!(KissErrKind::EArgument,"unhandled protocal {:?}",self.config.bcos2.protocol)}
+            _ => {
+                return kisserr!(
+                    KissErrKind::EArgument,
+                    "unhandled protocal {:?}",
+                    self.config.bcos2.protocol
+                )
+            }
         }
         //Ok(response_text);
     }
@@ -119,7 +125,7 @@ impl BcosRPC {
         cmd: &str,
         params_value: &JsonValue,
     ) -> Result<JsonValue, KissError> {
-        log::debug!("rpc_request_sync cmd {:?},{:?}",cmd,params_value);
+        log::debug!("rpc_request_sync cmd {:?},{:?}", cmd, params_value);
         let req = RpcRequestData {
             method: cmd.to_string(),
             params: params_value.clone(),
@@ -137,9 +143,11 @@ impl BcosRPC {
                 Ok(jsonval)
             }
             Err(e) => {
-                log::error!("parse json rpc response json error {},{:?}",
+                log::error!(
+                    "parse json rpc response json error {},{:?}",
                     responsebuffer,
-                    e);
+                    e
+                );
                 return kisserr!(
                     KissErrKind::EFormat,
                     "parse json rpc response json error {},{:?}",

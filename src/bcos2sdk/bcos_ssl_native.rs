@@ -21,18 +21,22 @@
 extern crate libloading;
 
 use std::convert::From;
-use std::env;
+use std::{env, thread};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use libc::c_void;
 use libloading::{Library, Symbol};
+use serde_json::json;
 
-use crate::bcossdk::bcos_channel_client::IBcosChannel;
-use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
-use crate::bcossdk::bufferqueue::BufferQueue;
-use crate::bcossdk::channelpack::ChannelPack;
-use crate::bcossdk::commonutil::is_windows;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
-use std::sync::{Arc, Mutex};
+use crate::bcos2sdk::bcos_channel_client::IBcosChannel;
+use crate::bcos2sdk::bcosrpcwraper::RpcRequestData;
+use crate::bcos2sdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
+use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ChannelConfig, ClientConfig};
+use crate::bcossdkutil::bufferqueue::BufferQueue;
+use crate::bcossdkutil::commonutil::is_windows;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, printlnex};
 
 //C native api 类型定义
 type FN_SSOCK_CREATE = fn() -> *mut ::libc::c_void;
@@ -52,10 +56,17 @@ type FUNC_SSOCK_SEND = fn(*mut c_void, buffer: *const u8, len: i32) -> i32;
 type FUNC_SSOCK_RECV = fn(*mut c_void, buffer: *mut u8, size: i32) -> i32;
 type SSOCKLIB_TYPE = Arc<Mutex<*mut libc::c_void>>;
 
-
 #[macro_export]
 macro_rules! mac_pssock {
-    ($x:expr)=>{*$x.ssocklib.as_ref().unwrap().pssock.as_ref().lock().unwrap()};
+    ($x:expr) => {
+        *$x.ssocklib
+            .as_ref()
+            .unwrap()
+            .pssock
+            .as_ref()
+            .lock()
+            .unwrap()
+    };
 }
 
 pub fn lib_usage_msg() -> String {
@@ -77,9 +88,11 @@ fn rzero(s: &String) -> String {
     n.push('\0');
     n
 }
+
 #[derive(Debug)]
 pub struct SSockNativeLib {
-    pub pssock: SSOCKLIB_TYPE,  //Arc<*mut libc::c_void>,
+    pub pssock: SSOCKLIB_TYPE,
+    //Arc<*mut libc::c_void>,
     pub nativelib: Library,
 }
 
@@ -89,6 +102,7 @@ pub struct SSockNativeLib {
 impl SSockNativeLib {
     pub fn close(&mut self) {}
 }
+
 ///tls 客户端，封装c动态库加载，c native api调用
 /// 依赖GMSSL库，采用动态库连接的方式调用，参见上面的lib_usage_msg
 #[derive(Debug)]
@@ -101,9 +115,9 @@ pub struct BcosNativeTlsClient {
     pub channelpackpool: Vec<ChannelPack>, //一个池子，存没有被处理的channelpack，在推送等流程用到
 }
 
+unsafe impl Send for BcosNativeTlsClient {}
 
-unsafe impl Send for  BcosNativeTlsClient{}
-unsafe impl Sync for  BcosNativeTlsClient{}
+unsafe impl Sync for BcosNativeTlsClient {}
 
 impl IBcosChannel for BcosNativeTlsClient {
     ///tls连接，会发起握手
@@ -168,9 +182,11 @@ impl IBcosChannel for BcosNativeTlsClient {
             let pdst = recvbuffer.as_mut_ptr();
             //let dstlen = 1024;
             let r = func_recv(
-                                //self.ssocklib.as_ref().unwrap().pssock,
-                              mac_pssock!(self),
-                                pdst, size as i32);
+                //self.ssocklib.as_ref().unwrap().pssock,
+                mac_pssock!(self),
+                pdst,
+                size as i32,
+            );
             //println!("recv result {:?}", r);
             if r >= 0 {
                 //println!("recv size :{}",r);
@@ -202,11 +218,11 @@ impl BcosNativeTlsClient {
     }
 
     pub fn build(&mut self) -> Result<bool, KissError> {
-
         let res = BcosNativeTlsClient::openlib();
         let nativelib = match res {
             Ok(lib) => lib,
             Err(e) => {
+                print!("open lib error {:?}", e);
                 return Err(e);
             }
         };
@@ -240,7 +256,7 @@ impl BcosNativeTlsClient {
         if is_windows() {
             libname = libname + ".dll";
         } else {
-            libname = format!("lib{}.so",libname);
+            libname = format!("lib{}.so", libname);
         }
         // let fullpath = exepath.join(Path::new(libname.as_str()));
         //let pathstr =  fullpath.as_os_str().to_str().unwrap();
@@ -260,7 +276,7 @@ impl BcosNativeTlsClient {
             let lib_fullpath = BcosNativeTlsClient::locate_lib_path();
             //println!("lib file : {:?}", lib_fullpath);
             let res = Library::new(lib_fullpath.as_str());
-
+            //println!("open lib {},res {:?}",lib_fullpath,res);
             match res {
                 Ok(lib) => {
                     return Ok(lib);
@@ -373,4 +389,53 @@ impl BcosNativeTlsClient {
             Ok(r)
         }
     }
+}
+
+pub fn getNodeVersionPack() -> Option<ChannelPack> {
+    let groupid = 1;
+    let cmd = "getClientVersion";
+    let params_value = json!([groupid]);
+
+    let req = RpcRequestData {
+        method: cmd.to_string(),
+        params: params_value.clone(),
+        jsonrpc: "2.0".to_string(),
+        id: 1,
+    };
+    println!("{:?}", req);
+    make_channel_pack(CHANNEL_PACK_TYPE::RPC, req.encode().unwrap().as_str())
+}
+
+pub fn test_ssl_native() {
+    let config = ClientConfig::load("gm/conf/config.toml").unwrap();
+    let mut client = BcosNativeTlsClient::default(&config.channel);
+    let res = client.build();
+    println!("client build result {:?}", res);
+    println!("Client sock is {:?}", client.ssocklib);
+    //let res = client.connect();
+    //println!("connect result = {:?}",res);
+    let buffer = getNodeVersionPack().unwrap().pack();
+    let sendres = client.send(&buffer);
+    println!("send result  = {:?}", sendres);
+    loop {
+        //let dstlen = 1024;
+        let recvres = client.recv();
+        //println!("recv result {:?}", r);
+        if recvres.is_ok() {
+            let recvbuffer = recvres.unwrap().clone();
+
+            if recvbuffer.len() > 0 {
+                println!("{:?}", recvbuffer);
+                let p = ChannelPack::unpack(&recvbuffer).unwrap();
+                println!("pack: {}", p.detail());
+                println!("data: {}", String::from_utf8(p.data).unwrap());
+
+                break;
+
+            }
+
+        }
+        thread::sleep(Duration::from_millis(300));
+    }
+    client.finish();
 }

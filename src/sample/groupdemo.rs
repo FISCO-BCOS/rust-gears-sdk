@@ -10,21 +10,21 @@
     unused_results,
     unused_variables
 )]
-use std::time::Duration;
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::KissError;
-use crate::bcossdk::{bcossdkquery, fileutils};
-use std::thread;
-use serde_json::{json, Value as JsonValue};
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::bcossdkquery::json_hextoint;
 use crate::console::cli_common::Cli;
+use fisco_bcos_rust_gears_sdk::bcos2sdk::bcos2client::Bcos2Client;
+use fisco_bcos_rust_gears_sdk::bcos2sdk::bcossdkquery::json_hextoint;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::contracthistory::ContractHistory;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::fileutils;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::kisserror::KissError;
+use serde_json::{json, Value as JsonValue};
+use std::thread;
+use std::time::Duration;
+
 //---------------------------------------------------------
-pub fn demo(cli:&Cli)->Result<(),KissError>
-{
-    let mut bcossdk = BcosSDK::new_from_config(cli.default_configfile().as_str()).unwrap();
+pub fn demo(cli: &Cli) -> Result<(), KissError> {
+    let mut bcossdk = Bcos2Client::new_from_config(cli.default_configfile().as_str()).unwrap();
     let res = bcossdk.queryGroupStatus(1)?;
-    println!("querygroupstatus {:?}",res);
+    println!("querygroupstatus {:?}", res);
     Ok(())
 }

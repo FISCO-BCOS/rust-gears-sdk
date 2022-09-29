@@ -22,8 +22,8 @@
 use serde_derive::Deserialize;
 use toml;
 
-use crate::bcossdk::fileutils;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcossdkutil::fileutils;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 
 #[derive(Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum BcosCryptoKind {
@@ -66,15 +66,15 @@ impl Bcos2ChainConfig {
 #[derive(Deserialize, Debug, Default, Clone)]
 pub struct Bcos3Config {
     // C语言SDK所用的配置文件，全目录或相对目录，包含文件名，如"./bcos3sdklib/bcos3_sdk_config.ini"
-    pub sdk_config_file:String,
-    pub group :String
+    pub sdk_config_file: String,
+    pub group: String,
 }
 
-impl Bcos3Config{
-    pub fn default()-> Self{
-        Bcos3Config{
-            sdk_config_file : "./bcos3sdklib/bcos3_sdk_config.ini".to_string(),
-            group:"group0".to_string()
+impl Bcos3Config {
+    pub fn default() -> Self {
+        Bcos3Config {
+            sdk_config_file: "./bcos3sdklib/bcos3_sdk_config.ini".to_string(),
+            group: "group0".to_string(),
         }
     }
 }
@@ -86,12 +86,8 @@ pub struct RpcConfig {
     pub timeout: u32, //in sec
 }
 
-unsafe impl  Send for RpcConfig {
-
-}
-unsafe impl  Sync for RpcConfig {
-
-}
+unsafe impl Send for RpcConfig {}
+unsafe impl Sync for RpcConfig {}
 
 impl RpcConfig {
     pub fn default() -> Self {
@@ -101,8 +97,6 @@ impl RpcConfig {
         }
     }
 }
-
-
 
 ///channel连接方式的配置
 #[derive(Deserialize, Debug, Clone)]
@@ -122,12 +116,8 @@ pub struct ChannelConfig {
     pub gmensdkcert: String,
     pub gmensdkkey: String,
 }
-unsafe impl  Send for ChannelConfig {
-
-}
-unsafe impl  Sync for ChannelConfig {
-
-}
+unsafe impl Send for ChannelConfig {}
+unsafe impl Sync for ChannelConfig {}
 
 impl ChannelConfig {
     pub fn default() -> Self {
@@ -155,20 +145,16 @@ pub struct CommonConfig {
     pub crypto: BcosCryptoKind,
     pub accountpem: String,
     pub contractpath: String,
-    pub solc :String, //solc编译器
-    pub solcgm :String, //solc国密版本编译器
+    pub solc: String,   //solc编译器
+    pub solcgm: String, //solc国密版本编译器
 }
-unsafe impl  Sync for CommonConfig {
-
-}
-unsafe impl  Send for CommonConfig {
-
-}
+unsafe impl Sync for CommonConfig {}
+unsafe impl Send for CommonConfig {}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct ClientConfig {
     pub common: CommonConfig,
-    pub bcos3:Bcos3Config,
+    pub bcos3: Bcos3Config,
     pub bcos2: Bcos2ChainConfig,
     pub rpc: RpcConfig,
     pub channel: ChannelConfig,
@@ -179,16 +165,14 @@ pub struct ClientConfig {
 
 impl ClientConfig {
     pub fn load(config_file: &str) -> Result<ClientConfig, KissError> {
-
-
         let loadres = fileutils::readstring(config_file);
         match loadres {
             Ok(text) => {
                 //println!("{:?}",text);
-                let   v: toml::Value = toml::from_str(&text).unwrap();
+                let v: toml::Value = toml::from_str(&text).unwrap();
                 //println!("Chain config {:?}",v["chain"]["accountpem"]);
 
-               // println!("toml value: {:?}",v);
+                // println!("toml value: {:?}",v);
                 let configresult: Result<ClientConfig, toml::de::Error> = toml::from_str(&text);
 
                 match configresult {

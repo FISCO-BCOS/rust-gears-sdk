@@ -1,24 +1,24 @@
 #![allow(
-clippy::unreadable_literal,
-clippy::upper_case_acronyms,
-dead_code,
-non_camel_case_types,
-non_snake_case,
-non_upper_case_globals,
-overflowing_literals,
-unused_variables,
-unused_assignments
+    clippy::unreadable_literal,
+    clippy::upper_case_acronyms,
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    overflowing_literals,
+    unused_variables,
+    unused_assignments
 )]
 
-use crate::bcossdk::bcos_ssl_native::BcosNativeTlsClient;
-use crate::bcossdk::bcos_ssl_normal::BcosSSLClient;
-use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
-use crate::bcossdk::bufferqueue::BufferQueue;
-use crate::bcossdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
-use std::time::Duration;
+use crate::bcos2sdk::bcos_ssl_native::BcosNativeTlsClient;
+use crate::bcos2sdk::bcos_ssl_normal::BcosSSLClient;
+use crate::bcos2sdk::channelpack::{make_channel_pack, ChannelPack, CHANNEL_PACK_TYPE};
+use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ChannelConfig};
+use crate::bcossdkutil::bufferqueue::BufferQueue;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, printlnex};
 use std::sync::{Arc, Mutex};
-
+use std::time::Duration;
 
 ///用接口抽象国密和非国密SSL底层实现，
 /// 底层只关注对SSL或GMSSL的API调用，暴露几个简单的接口
@@ -28,7 +28,6 @@ pub trait IBcosChannel {
     fn recv(&mut self) -> Result<Vec<u8>, KissError>;
     fn finish(&mut self);
 }
-
 
 type IBcosChannelImpl = Arc<Mutex<dyn IBcosChannel + Send + Sync>>;
 
@@ -59,7 +58,6 @@ impl IBcosChannel for BcosChannelClient {
         let res = self.channelimpl.lock().unwrap().recv();
         //println!("recv done");
         res
-
     }
 
     fn finish(&mut self) {
@@ -71,7 +69,7 @@ impl BcosChannelClient {
     pub fn default(config: &ChannelConfig) -> BcosChannelClient {
         let ssl_client = BcosSSLClient::default(&config);
         let channelimpl: IBcosChannelImpl = Arc::new(Mutex::new(ssl_client));
-         //let channelimpl: IBcosChannelImpl = Arc::new(ssl_client);
+        //let channelimpl: IBcosChannelImpl = Arc::new(ssl_client);
         BcosChannelClient {
             config: config.clone(),
             bufferqueue: Default::default(),
@@ -81,7 +79,7 @@ impl BcosChannelClient {
     }
     pub fn new(config: &ChannelConfig) -> Result<BcosChannelClient, KissError> {
         let channelimpl: IBcosChannelImpl;
-        println!("config.tlskind {:?}",&config);
+        println!("config.tlskind {:?}", &config);
         match config.tlskind {
             BcosCryptoKind::ECDSA => {
                 let mut ssl_client = BcosSSLClient::default(&config);
@@ -200,16 +198,14 @@ impl BcosChannelClient {
         }
     }
 
-    pub fn pop_queue_to_packet(queue: &mut BufferQueue) -> Result<Vec<ChannelPack>, KissError>
-    {
-        let mut vecres: Vec<ChannelPack> = vec!();
-      // println!("before peek, queue size : {}",&self.bufferqueue.queue.len());
+    pub fn pop_queue_to_packet(queue: &mut BufferQueue) -> Result<Vec<ChannelPack>, KissError> {
+        let mut vecres: Vec<ChannelPack> = vec![];
+        // println!("before peek, queue size : {}",&self.bufferqueue.queue.len());
         if queue.queue.len() <= 42 {
             return Ok(vecres);
         }
         let mut k = 0;
-       loop
-        {
+        loop {
             //println!("k = {}",k);
             if k > 50 {
                 break;
@@ -232,10 +228,9 @@ impl BcosChannelClient {
         }
         Ok(vecres)
     }
-    pub fn read_packets(&mut self) -> Result<Vec<ChannelPack>, KissError>
-    {
+    pub fn read_packets(&mut self) -> Result<Vec<ChannelPack>, KissError> {
         let mut i = 0;
-        let mut vecres: Vec<ChannelPack> = vec!();
+        let mut vecres: Vec<ChannelPack> = vec![];
         //println!("try recv");
         while i < 1 {
             //println!("try recv-->");
@@ -252,8 +247,7 @@ impl BcosChannelClient {
         Ok(vecres)
     }
 
-    pub fn read_to_match(&mut self, outpack: &ChannelPack) -> Result<ChannelPack, KissError>
-    {
+    pub fn read_to_match(&mut self, outpack: &ChannelPack) -> Result<ChannelPack, KissError> {
         let mut i = 0;
         while i < 50 {
             let mut res = self.try_recv()?;

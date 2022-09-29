@@ -19,25 +19,27 @@
     unused_assignments
 )]
 
+use crate::bcos2sdk::bcosrpcwraper::BcosRPC;
+use crate::bcos2sdk::bcostransaction;
+use crate::bcos2sdk::bcostransaction::{BcosTransaction, BcosTransactionWithSig};
+use crate::bcossdkutil::accountutil::{account_from_pem, BcosAccount};
+use crate::bcossdkutil::bcosclientconfig::BcosClientProtocol;
+use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ClientConfig};
+use crate::bcossdkutil::commonhash::{CommonHash, HashType};
+use crate::bcossdkutil::commonsigner::{
+    CommonSignerWeDPR_SM2, CommonSignerWeDPR_Secp256, ICommonSigner,
+};
+use crate::bcossdkutil::contractabi::ContractABI;
+use crate::bcossdkutil::fileutils;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, printlnex};
+use ethabi::Token;
 use ethereum_types::U256;
 use serde_json::{json, Value as JsonValue};
 use time::Tm;
-use crate::bcossdk::accountutil::{account_from_pem, BcosAccount};
-use crate::bcossdk::bcosclientconfig::BcosClientProtocol;
-use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ClientConfig};
-use crate::bcossdk::bcosrpcwraper::BcosRPC;
-use crate::bcossdk::bcostransaction::{BcosTransaction, BcosTransactionWithSig};
-use crate::bcossdk::commonhash::{CommonHash, HashType};
-use crate::bcossdk::commonsigner::{
-    CommonSignerWeDPR_SM2, CommonSignerWeDPR_Secp256, ICommonSigner,
-};
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::fileutils;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
-use ethabi::Token;
 
 #[derive()]
-pub struct BcosSDK {
+pub struct Bcos2Client {
     pub config: ClientConfig,
     pub account: BcosAccount,
     pub netclient: BcosRPC,
@@ -52,7 +54,7 @@ pub struct BcosSDK {
 //unsafe impl Send for BcosSDK{}
 //unsafe impl Sync for BcosSDK{}
 
-impl BcosSDK {
+impl Bcos2Client {
     pub fn to_summary(&self) -> String {
         let basic = format!(
             "Crypto kind:{:?},configfile:{}",
@@ -70,15 +72,15 @@ impl BcosSDK {
                     &self.config.channel.ip, self.config.channel.port, &self.config.channel.tlskind
                 );
             }
-            _=>{
-                protocol =format!("unhandle protocal: {:?}",self.config.bcos2.protocol);
+            _ => {
+                protocol = format!("unhandle protocal: {:?}", self.config.bcos2.protocol);
             }
         }
         let full = format!("{},{}", protocol, basic);
         return full;
     }
 
-    pub fn new_from_config(configfile: &str) -> Result<BcosSDK, KissError> {
+    pub fn new_from_config(configfile: &str) -> Result<Bcos2Client, KissError> {
         let config = ClientConfig::load(configfile)?;
         printlnex!("config is {:?}", config);
 
@@ -100,12 +102,11 @@ impl BcosSDK {
                 let mut signer = CommonSignerWeDPR_SM2::default();
                 signer.account = account.clone();
                 gmsigner = Option::from(signer);
-
             }
         }
         let netclient = BcosRPC::new(&config)?;
 
-        Ok(BcosSDK {
+        Ok(Bcos2Client {
             config,
             account,
             netclient,
@@ -119,9 +120,9 @@ impl BcosSDK {
     }
 
     ///加载配置并创建一个client
-    pub fn new() -> Result<BcosSDK, KissError> {
+    pub fn new() -> Result<Bcos2Client, KissError> {
         let configfile = "conf/config.toml";
-        BcosSDK::new_from_config(configfile)
+        Bcos2Client::new_from_config(configfile)
     }
 
     ///优雅退出
@@ -237,7 +238,6 @@ impl BcosSDK {
         Ok(value)
     }
 
-
     ///引用客户端配置，构建一个未签名的交易
     pub fn make_transaction(
         &self,
@@ -249,7 +249,7 @@ impl BcosSDK {
         let chainid = self.config.bcos2.chainid;
         let groupid = self.config.bcos2.groupid;
         Option::from(BcosTransaction {
-            to_address: crate::bcossdk::bcostransaction::encode_address(to_address),
+            to_address: bcostransaction::encode_address(to_address),
             random_id: U256::from(randid),
             gas_price: U256::from(30000000),
             gas_limit: U256::from(30000000),
@@ -289,17 +289,17 @@ impl BcosSDK {
     }
     ///输入已经解析好的param，直接根据组包，调用合约
     pub fn send_raw_transaction_withtokenparam(
-                &mut self,
+        &mut self,
         contract: &ContractABI,
         to_address: &str,
         methodname: &str,
         params: &[Token],
-    )-> Result<JsonValue, KissError>
-    {
+    ) -> Result<JsonValue, KissError> {
         let block_limit = self.getBlockLimit()?;
-        let function = contract.find_function_unwrap(methodname) ?;
+        let function = contract.find_function_unwrap(methodname)?;
         //println!("function : {:?}",function);
-        let txinput = ContractABI::encode_function_input_to_abi_by_tokens(&function, params, &self.hashtype)?;
+        let txinput =
+            ContractABI::encode_function_input_to_abi_by_tokens(&function, params, &self.hashtype)?;
         let tx = self.make_transaction(to_address, &hex::encode(txinput), block_limit);
         let groupid = self.config.bcos2.groupid;
         let cmd = "sendRawTransaction";
@@ -319,7 +319,8 @@ impl BcosSDK {
     ) -> Result<JsonValue, KissError> {
         let txinput = contract.convert_function_input_str_to_token(methodname, params, true)?;
         //println!("txinput tokens len {}, {:?},",txinput.len(),txinput);
-        let value = self.send_raw_transaction_withtokenparam(contract, to_address, methodname, &txinput)?;
+        let value =
+            self.send_raw_transaction_withtokenparam(contract, to_address, methodname, &txinput)?;
         Ok(value)
     }
 
@@ -331,7 +332,8 @@ impl BcosSDK {
         methodname: &str,
         params: &[Token],
     ) -> Result<JsonValue, KissError> {
-        let response = self.send_raw_transaction_withtokenparam(&contract, &to_address, methodname, params)?;
+        let response =
+            self.send_raw_transaction_withtokenparam(&contract, &to_address, methodname, params)?;
         let txhash = response["result"].as_str().unwrap();
         self.try_getTransactionReceipt(txhash, 3, false)
     }
@@ -345,7 +347,7 @@ impl BcosSDK {
         params: &[String],
     ) -> Result<JsonValue, KissError> {
         let response = self.send_raw_transaction(&contract, &to_address, methodname, &params)?;
-        println!("response {:?}",response);
+        println!("response {:?}", response);
         let txhash = response["result"].as_str().unwrap();
         self.try_getTransactionReceipt(txhash, 3, false)
     }
@@ -368,7 +370,4 @@ impl BcosSDK {
         let value = self.netclient.rpc_request_sync(cmd, &paramobj)?;
         Ok(value)
     }
-
-
-
 }

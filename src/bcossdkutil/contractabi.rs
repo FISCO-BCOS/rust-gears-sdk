@@ -14,53 +14,51 @@
 由于其部分实现是私有的，所以在这里参考原代码进行修改
 */
 #![allow(
-clippy::unreadable_literal,
-clippy::upper_case_acronyms,
-dead_code,
-non_camel_case_types,
-non_snake_case,
-non_upper_case_globals,
-overflowing_literals,
-unused_imports,
-unused_variables,
-unused_assignments
+    clippy::unreadable_literal,
+    clippy::upper_case_acronyms,
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    overflowing_literals,
+    unused_imports,
+    unused_variables,
+    unused_assignments
 )]
 
 use std::collections::HashMap;
 use std::fs::File;
 
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 use anyhow::anyhow;
 use ethabi::param_type::Writer;
 use ethabi::{
-    param_type::ParamType,
-    token::{Token},
-    Error as ABIError,
-    Bytes, Contract, Event, Function, Hash, Log as ReceiptLog, Param, RawLog,
+    param_type::ParamType, token::Token, Bytes, Contract, Error as ABIError, Event, Function, Hash,
+    Log as ReceiptLog, Param, RawLog,
 };
+use hex::ToHex;
 use hex_literal::hex;
 use keccak_hash::keccak;
-use hex::ToHex;
 use serde_json::Value as JsonValue;
 
-use crate::bcossdk::commonhash::{CommonHash, HashType};
-use crate::bcossdk::event_utils;
+use crate::bcossdkutil::abi_parser::ABIParser;
+use crate::bcossdkutil::abi_tokenizer::{ABILenientTokenizer, ABIStrictTokenizer, ABITokenizer};
+use crate::bcossdkutil::commonhash::{CommonHash, HashType};
+use crate::bcossdkutil::event_utils;
+use crate::bcossdkutil::event_utils::EventABIUtils;
+use crate::bcossdkutil::fileutils::read_all;
+use crate::bcossdkutil::liteutils::split_param;
+use ethabi::token::StrictTokenizer;
+use itertools::Itertools;
+use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
-use crate::bcossdk::event_utils::EventABIUtils;
-use itertools::Itertools;
-use crate::bcossdk::liteutils::split_param;
-use std::io::Read;
-use crate::bcossdk::fileutils::read_all;
-use crate::bcossdk::abi_parser::ABIParser;
-use crate::bcossdk::abi_tokenizer::{ABILenientTokenizer, ABIStrictTokenizer, ABITokenizer};
-use ethabi::token::StrictTokenizer;
 
 #[derive(Clone, Debug)]
 pub struct ContractABI {
     pub abi_file: String,
     pub contract: Contract,
-    pub event_name_map: HashMap<String,Event>,
+    pub event_name_map: HashMap<String, Event>,
     pub event_hash_map: HashMap<Hash, Event>,
     pub func_selector_map: HashMap<Vec<u8>, Function>,
     pub hashtype: HashType,
@@ -113,7 +111,7 @@ impl ContractABI {
         let mut contract = ContractABI {
             abi_file: String::from(filename),
             contract: contract_obj,
-            event_name_map:HashMap::new(),
+            event_name_map: HashMap::new(),
             event_hash_map: HashMap::new(),
             func_selector_map: HashMap::new(),
             hashtype: hashtype.clone(),
@@ -184,7 +182,8 @@ impl ContractABI {
         for event in self.abiparser.events.as_slice() {
             let hash = self.event_abi_utils.event_signature(&event);
             self.event_hash_map.insert(hash, event.clone());
-            self.event_name_map.insert(event.name.clone(),event.clone());
+            self.event_name_map
+                .insert(event.name.clone(), event.clone());
             //println!("event hash {} ,event {:?}", hex::encode(hash), event);
         }
     }
@@ -193,11 +192,11 @@ impl ContractABI {
         getresult
     }
 
-    pub fn print_event_namehash(&self){
+    pub fn print_event_namehash(&self) {
         let mut i = 0;
-        for (n,e) in &self.event_name_map{
-            i+=1;
-            println!("{}): {:?}",i,e)
+        for (n, e) in &self.event_name_map {
+            i += 1;
+            println!("{}): {:?}", i, e)
         }
     }
     pub fn find_event_by_hash(&self, key: Hash) -> Option<&Event> {
@@ -214,19 +213,18 @@ impl ContractABI {
     }
 
     ///和find_function的区别是，包装了一下错误处理，改成KissError
-    pub fn find_function_unwrap(&self, name_or_signature: &str)->Result<Function,KissError>
-    {
+    pub fn find_function_unwrap(&self, name_or_signature: &str) -> Result<Function, KissError> {
         let function = match self.find_function(name_or_signature) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        return kisserr!(
-                            KissErrKind::EFormat,
-                            "find_function {} {:?}",
-                            name_or_signature,
-                            e
-                        );
-                    }
-                };
+            Ok(f) => f,
+            Err(e) => {
+                return kisserr!(
+                    KissErrKind::EFormat,
+                    "find_function {} {:?}",
+                    name_or_signature,
+                    e
+                );
+            }
+        };
         Ok(function)
     }
     //根据方法名或signature（即带有参数的全定义字符串）查找合约方法
@@ -281,17 +279,21 @@ impl ContractABI {
         //println!("{}",hex::encode(&result));
         Ok(hex::encode(&result))
     }
-    pub fn collect_function_paramtypes(func:&Function) ->Vec<Box::<ParamType>>
-    {
-        func.inputs.iter().map(|p| Box::new(p.kind.clone())).collect()
+    pub fn collect_function_paramtypes(func: &Function) -> Vec<Box<ParamType>> {
+        func.inputs
+            .iter()
+            .map(|p| Box::new(p.kind.clone()))
+            .collect()
     }
 
-
-	pub fn types_check(tokens: &[Token], param_types: &[Box<ParamType>]) -> bool {
-		param_types.len() == tokens.len() && {
-			param_types.iter().zip(tokens).all(|(param_type, token)| token.type_check(param_type))
-		}
-	}
+    pub fn types_check(tokens: &[Token], param_types: &[Box<ParamType>]) -> bool {
+        param_types.len() == tokens.len() && {
+            param_types
+                .iter()
+                .zip(tokens)
+                .all(|(param_type, token)| token.type_check(param_type))
+        }
+    }
 
     /*传入的已经是token，直接encode成abi字符串*/
     pub fn encode_function_input_to_abi_by_tokens(
@@ -302,12 +304,14 @@ impl ContractABI {
         let params: Vec<Box<ParamType>> = ContractABI::collect_function_paramtypes(&func);
         //println!("encode_func_input_tokens param: {:?}",params);
         if !ContractABI::types_check(tokens, &params.as_slice()) {
-            return kisserr!(KissErrKind::EFormat, "encode_func_input_tokens types_check error");
+            return kisserr!(
+                KissErrKind::EFormat,
+                "encode_func_input_tokens types_check error"
+            );
         }
         let signed = ContractABI::function_short_signature(func, hashtype).to_vec();
         let encoded = ethabi::encode(tokens);
         Ok(signed.into_iter().chain(encoded.into_iter()).collect())
-
     }
     //传入字符串类型的参数列表，编码成abi
     pub fn encode_function_input_to_abi(
@@ -316,20 +320,25 @@ impl ContractABI {
         values: &[String],
         lenient: bool,
     ) -> anyhow::Result<String, KissError> {
-        let tokens = self.convert_function_input_str_to_token(name_or_signature,values,lenient)?;
+        let tokens =
+            self.convert_function_input_str_to_token(name_or_signature, values, lenient)?;
         let function = self.find_function_unwrap(name_or_signature)?;
-        let res = ContractABI::encode_function_input_to_abi_by_tokens(&function, &tokens, &self.hashtype)?;
+        let res = ContractABI::encode_function_input_to_abi_by_tokens(
+            &function,
+            &tokens,
+            &self.hashtype,
+        )?;
         Ok(hex::encode(&res))
     }
 
     //传入的是字符串，转换成token
-    pub fn convert_function_input_str_to_token(&self,
+    pub fn convert_function_input_str_to_token(
+        &self,
         name_or_signature: &str,
         values: &[String],
         lenient: bool,
-    ) -> anyhow::Result<Vec<Token>, KissError>{
-
-        let function =self.find_function_unwrap(name_or_signature)?;
+    ) -> anyhow::Result<Vec<Token>, KissError> {
+        let function = self.find_function_unwrap(name_or_signature)?;
         // let sig = ContractABI::function_signature_to_4byte_selector(&function).unwrap();
         //let shortsig  = ContractABI::function_short_signature(&function);
         //println!("encode_function_input ,sig is {:?} : {:?}",hex::encode(shortsig),function);
@@ -355,7 +364,6 @@ impl ContractABI {
         Ok(tokens)
     }
 
-
     pub fn collect_tokens(
         &self,
         params: &[(ParamType, &str)],
@@ -367,11 +375,9 @@ impl ContractABI {
             .map(|&(ref param, value)| match lenient {
                 true => {
                     //println!("collect_tokens param: {:?},value: {}",param,value);
-                     ABILenientTokenizer::tokenize(param, value)
+                    ABILenientTokenizer::tokenize(param, value)
                 }
-                false => {
-                    ABIStrictTokenizer::tokenize(param, value)
-                }
+                false => ABIStrictTokenizer::tokenize(param, value),
             })
             .collect::<anyhow::Result<_, _>>()
             .map_err(From::from)
@@ -459,8 +465,8 @@ impl ContractABI {
         //let contract = Contract_abi::new(abi_path);
         //println!("total to parse logs {}",&log_list.as_array().unwrap().len());
         let mut loglistresult: Vec<ReceiptLog> = Vec::new();
-        if *log_list == JsonValue::Null{
-            return Ok(vec!())
+        if *log_list == JsonValue::Null {
+            return Ok(vec![]);
         }
         for (pos, e) in log_list.as_array().unwrap().iter().enumerate() {
             printlnex!(
@@ -496,11 +502,9 @@ impl ContractABI {
         Ok(loglistresult)
     }
 
-
     ///将数组（类型必须是string，如果是其他类型，先转换成string数组），拼接成类似["aa","bb","cc"]这样的格式
     ///合约接口中，如输入的是类似string[] data, uint256[] values这样的参数，则接受类似的数组
-    pub fn array_to_param(x: &Vec<String>) -> String
-    {
+    pub fn array_to_param(x: &Vec<String>) -> String {
         let mut allstr: String = format!("[");
         let mut i = 0;
         for s in x.iter() {
@@ -515,8 +519,6 @@ impl ContractABI {
         allstr
     }
 }
-
-
 
 pub fn test_parse_log() {
     let abi_path = "contracts/HelloWorld.abi";

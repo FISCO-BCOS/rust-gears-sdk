@@ -7,12 +7,12 @@
     non_upper_case_globals,
     overflowing_literals
 )]
-use crate::bcossdk::accountutil::{
+use crate::bcossdkutil::accountutil::{
     account_from_pem, create_account, save_key_to_pem, BcosAccount, EcdsaAccountUtil,
     GMAccountUtil, IBcosAccountUtil,
 };
-use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ClientConfig};
-use crate::bcossdk::kisserror::KissError;
+use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ClientConfig};
+use crate::bcossdkutil::kisserror::KissError;
 use hex::ToHex;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -26,13 +26,12 @@ struct OptAccount {
     name: Option<String>,
 }
 
-pub fn cmd_account(cli:&Cli) -> Result<(), KissError> {
-
-        //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
-    let mut cmdparams :Vec<String>= vec!(cli.cmd.clone());
+pub fn cmd_account(cli: &Cli) -> Result<(), KissError> {
+    //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
+    let mut cmdparams: Vec<String> = vec![cli.cmd.clone()];
 
     cmdparams.append(&mut cli.params.clone());
-    println!("cmdparams {:?}",cmdparams);
+    println!("cmdparams {:?}", cmdparams);
     let configfile = cli.default_configfile();
 
     let configfilepath = PathBuf::from(&configfile);
@@ -40,7 +39,7 @@ pub fn cmd_account(cli:&Cli) -> Result<(), KissError> {
     workpath.pop();
     let config = ClientConfig::load(configfile.as_str())?;
     let opt: OptAccount = StructOpt::from_iter(cmdparams.iter());
-    println!("{:?}",opt);
+    println!("{:?}", opt);
     match opt.operation.as_str() {
         "new" => {
             return newaccount(&opt.name, &config, workpath.to_str().unwrap());
@@ -67,7 +66,7 @@ pub fn newaccount(
             fullpath = fullpath.join(format!("{}.pem", n));
         }
         Option::None => {
-            fullpath = fullpath.join(format!("{}.pem",hex::encode( &newaccount.address)));
+            fullpath = fullpath.join(format!("{}.pem", hex::encode(&newaccount.address)));
         }
     }
     println!("new account save to : {}", fullpath.to_str().unwrap());
@@ -84,7 +83,7 @@ pub fn show_account_from_pem(path: &str, cryptokind: &BcosCryptoKind) -> Result<
     println!("{}", account.to_hexdetail());
     Ok(())
 }
-use crate::{bcossdk, Cli};
+use crate::{bcossdkutil, Cli};
 use std::ffi::OsStr;
 use std::fs;
 
@@ -93,7 +92,7 @@ pub fn showaccount(
     config: &ClientConfig,
     workpath: &str,
 ) -> Result<(), KissError> {
-    // bcossdk::macrodef::set_debugprint(true);
+    // bcossdkutil::macrodef::set_debugprint(true);
     //println!("name {:?}",name);
     match name {
         Some(n) => {

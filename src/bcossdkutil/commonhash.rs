@@ -21,7 +21,7 @@
 //#[macro_use]
 use lazy_static::lazy_static;
 /*封装hash方法，包括wedpr的hash实现，以支持ECDSA和国密的hash*/
-use crate::bcossdk::bcosclientconfig::BcosCryptoKind;
+use crate::bcossdkutil::bcosclientconfig::BcosCryptoKind;
 use keccak_hash::{keccak, H256};
 use wedpr_l_crypto_hash_keccak256::WedprKeccak256;
 use wedpr_l_crypto_hash_sm3::WedprSm3;

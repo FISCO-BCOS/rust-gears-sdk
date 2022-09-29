@@ -21,8 +21,7 @@
 use std::fs::File;
 use std::io::{Read, Write};
 
-
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 use std::path::Path;
 
 ///封装略显繁琐的读文件操作
@@ -92,8 +91,7 @@ pub fn write_all(fullpath: &str, data: Vec<u8>) -> Result<(), KissError> {
     }
 }
 
-pub fn is_file_exist(fullpath:&str)->bool
-{
-    let res =  Path::new(fullpath).exists();
+pub fn is_file_exist(fullpath: &str) -> bool {
+    let res = Path::new(fullpath).exists();
     return res;
 }

@@ -1,13 +1,13 @@
 use fisco_bcos_rust_gears_sdk::bcos3sdk::bcos3client::Bcos3Client;
-use fisco_bcos_rust_gears_sdk::bcossdk::commonhash::HashType;
-use fisco_bcos_rust_gears_sdk::bcossdk::contractabi::ContractABI;
-use fisco_bcos_rust_gears_sdk::bcossdk::kisserror::KissError;
-use fisco_bcos_rust_gears_sdk::bcossdk::liteutils::{datetime_str, json_str};
+use fisco_bcos_rust_gears_sdk::bcossdkutil::commonhash::HashType;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::contractabi::ContractABI;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::kisserror::KissError;
+use fisco_bcos_rust_gears_sdk::bcossdkutil::liteutils::{datetime_str, json_str};
 
-use crate::bcossdk::contracthistory::ContractHistory;
-use crate::bcossdk::liteutils;
-use crate::Cli;
+use crate::bcossdkutil::contracthistory::ContractHistory;
+use crate::bcossdkutil::liteutils;
 use crate::console::console_utils::display_transaction;
+use crate::Cli;
 
 pub fn demo_tx(cli: &Cli) -> Result<(), KissError> {
     let mut bcos3client = Bcos3Client::new(cli.default_configfile().as_str())?;
@@ -16,26 +16,36 @@ pub fn demo_tx(cli: &Cli) -> Result<(), KissError> {
     println!("Deploy Result {:?}", result);
     let new_address = result["contractAddress"].as_str().unwrap();
     //1.1) save the address
-    let chfile = format!("{}/contracthistory.toml", bcos3client.config.common.contractpath);
+    let chfile = format!(
+        "{}/contracthistory.toml",
+        bcos3client.config.common.contractpath
+    );
     let blocknum = result["blockNumber"].as_u64().unwrap();
     //let bcos3contract_name = format!("HelloWorld-{}-{}", bcos3client.chainid, bcos3client.group);
-    let res = ContractHistory::save_to_file(chfile.as_str(), bcos3client.get_full_name().as_str(), "HelloWorld",
-                                  new_address, blocknum);
+    let res = ContractHistory::save_to_file(
+        chfile.as_str(),
+        bcos3client.get_full_name().as_str(),
+        "HelloWorld",
+        new_address,
+        blocknum,
+    );
 
-    let contract_address = new_address;// "2237d46dada4c0306699555fc0bc6a31da29e4b4";
-    let paramsvec = vec!(format!("abcdefg : {}", datetime_str()));
-    let contractabi = ContractABI::new_by_name("HelloWorld",
-                                               bcos3client.config.common.contractpath.as_str(),
-                                               &bcos3client.hashtype)?;
+    let contract_address = new_address; // "2237d46dada4c0306699555fc0bc6a31da29e4b4";
+    let paramsvec = vec![format!("abcdefg : {}", datetime_str())];
+    let contractabi = ContractABI::new_by_name(
+        "HelloWorld",
+        bcos3client.config.common.contractpath.as_str(),
+        &bcos3client.hashtype,
+    )?;
     // 2) send Transaction
     let methoname = "set";
-    let result = bcos3client.sendTransaction(contract_address, methoname,
-                                             &paramsvec, &contractabi)?;
+    let result =
+        bcos3client.sendTransaction(contract_address, methoname, &paramsvec, &contractabi)?;
     println!("send Transaction result {:?}", result);
     display_transaction(&result, &bcos3client.config, "bcos3", "HelloWorld")?;
 
     // 3) call
-    let callresult = bcos3client.call(contract_address, "get", &vec!(), &contractabi)?;
+    let callresult = bcos3client.call(contract_address, "get", &vec![], &contractabi)?;
     println!("call result {:?}", callresult);
     let resultdata = callresult["output"].as_str().unwrap();
     let output = contractabi.decode_output_byname("get", resultdata).unwrap();
@@ -45,8 +55,7 @@ pub fn demo_tx(cli: &Cli) -> Result<(), KissError> {
     Ok(())
 }
 
-pub fn demo_get(cli: &Cli) -> Result<(), KissError>
-{
+pub fn demo_get(cli: &Cli) -> Result<(), KissError> {
     let mut bcos3client = Bcos3Client::new(cli.default_configfile().as_str())?;
     let blocknum = bcos3client.getBlockNumber()?;
     println!("getBlockNumber {:?}", blocknum);
@@ -61,15 +70,26 @@ pub fn demo_get(cli: &Cli) -> Result<(), KissError>
     println!("getGroupList {:?}", bcos3client.getGroupList());
     let block = bcos3client.getBlockByNumber(blocknum, 0, 1).unwrap();
     println!("getBlockByNumber {:?}", block);
-    println!("block detail {:?}",block);
-    println!("blocknum {},blockhash {}", liteutils::json_u64(&block,"number",-1),  liteutils::json_str(&block,"hash",""));
+    println!("block detail {:?}", block);
+    println!(
+        "blocknum {},blockhash {}",
+        liteutils::json_u64(&block, "number", -1),
+        liteutils::json_str(&block, "hash", "")
+    );
     let hash = bcos3client.getBlockHashByNumber(blocknum).unwrap();
-    println!("getBlockHashByNumber {}, {:?}", blocknum,&hash);
+    println!("getBlockHashByNumber {}, {:?}", blocknum, &hash);
     let block = bcos3client.getBlockByHash(hash.as_str(), 0, 1)?;
     println!("getBlockByHash {:?}", block);
-    println!("blocknum {},blockhash {}", liteutils::json_u64(&block,"number",-1),  liteutils::json_str(&block,"hash",""));
+    println!(
+        "blocknum {},blockhash {}",
+        liteutils::json_u64(&block, "number", -1),
+        liteutils::json_str(&block, "hash", "")
+    );
 
-    println!("getTotalTransactionCount {:?}", bcos3client.getTotalTransactionCount());
+    println!(
+        "getTotalTransactionCount {:?}",
+        bcos3client.getTotalTransactionCount()
+    );
     let txlist = block["transactions"].as_array().unwrap().clone();
     let value = txlist.get(0).unwrap().clone();
     let txhash = value.as_str().unwrap().clone();
@@ -84,15 +104,18 @@ pub fn demo_get(cli: &Cli) -> Result<(), KissError>
     Ok(())
 }
 
-pub fn demo_bcos3client(cli: Cli) -> Result<(), KissError>
-{
+pub fn demo_bcos3client(cli: Cli) -> Result<(), KissError> {
     println!("--->>>user input {:?}", cli);
-    match cli.params[0].as_str()
-    {
-        "tx" => { demo_tx(&cli)?; }
-        "get" => { demo_get(&cli)?; }
-        _ => { println!(""); }
+    match cli.params[0].as_str() {
+        "tx" => {
+            demo_tx(&cli)?;
+        }
+        "get" => {
+            demo_get(&cli)?;
+        }
+        _ => {
+            println!("");
+        }
     }
     Ok(())
 }
-

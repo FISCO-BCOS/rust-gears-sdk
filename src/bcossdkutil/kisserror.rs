@@ -42,8 +42,6 @@ macro_rules! kisserrcode {
             };
 }
 
-
-
 //Kiss: Keep It Simple & Stupid
 #[derive(Fail, Clone, Debug, Eq, PartialEq)]
 pub enum KissErrKind {
@@ -88,12 +86,16 @@ impl KissError {
     pub fn err(kind: KissErrKind) -> KissError {
         KissError {
             kind: kind,
-            code:0,
+            code: 0,
             msg: "".to_string(),
         }
     }
-    pub fn new(kind: KissErrKind, code:i64 ,msg: &str) -> KissError {
-        KissError { kind:kind, code:code,msg:msg.to_string() }
+    pub fn new(kind: KissErrKind, code: i64, msg: &str) -> KissError {
+        KissError {
+            kind: kind,
+            code: code,
+            msg: msg.to_string(),
+        }
     }
 }
 

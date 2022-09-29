@@ -57,15 +57,18 @@ tokio = { version = "1", features = ["full"] }
 bytes = "1"
 colored ="2.0.0"
 
-
 [dev-dependencies]
 paste = "1"
 primitive_types07 = { package = "primitive-types", version = "0.7"}
 
 
 [features]
+#default = []
+#default = ["bcos3sdk_ffi","bcos2sdk_ffi"]
+#default = ["bcos2sdk_ffi"]
 default = ["bcos3sdk_ffi"]
 tassl_sock_ffi = []
+bcos2sdk_ffi =[]
 bcos3sdk_ffi = []
 bcos3sdk_native = []
 

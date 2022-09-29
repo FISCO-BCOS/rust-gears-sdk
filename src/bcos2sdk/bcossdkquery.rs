@@ -25,10 +25,11 @@ https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html
 use ethabi::Log as ReceiptLog;
 use serde_json::{json, Value as JsonValue};
 
-use crate::bcossdk::bcossdk::BcosSDK;
-use crate::bcossdk::commonhash::HashType;
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcos2sdk::bcos2client::Bcos2Client;
+use crate::bcossdkutil::commonhash::HashType;
+use crate::bcossdkutil::contractabi::ContractABI;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, printlnex};
 use std::thread;
 use std::time::Duration;
 
@@ -57,7 +58,7 @@ pub fn json_hextoint(v: &JsonValue) -> Result<i32, KissError> {
 ///--------------在这个文件里聚合一下查询接口,用简单的公共方法提供----------------------------------------
 ///方法命令刻意和https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html
 ///保持大小写和拼写一致，以便查找，局部不遵循rust命令规范
-impl BcosSDK {
+impl Bcos2Client {
     pub fn getBlockNumber(&mut self) -> Result<u32, KissError> {
         let groupid = self.config.bcos2.groupid;
         let cmd = "getBlockNumber";
@@ -256,7 +257,6 @@ impl BcosSDK {
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
-
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#gettransactionreceipt
     pub fn getTransactionReceipt(&mut self, txhash: &str) -> Result<JsonValue, KissError> {
         let groupid = self.config.bcos2.groupid;
@@ -394,8 +394,6 @@ impl BcosSDK {
         self.netclient.rpc_request_sync(cmd, &paramobj)
     }
 
-
-
     ///https://fisco-bcos-documentation.readthedocs.io/zh_CN/latest/docs/api.html#getbatchreceiptsbyblocknumberandrange
     /// curl -X POST --data '{"jsonrpc":"2.0","method":"getBatchReceiptsByBlockNumberAndRange","params":[1,"0x1","0","-1",false],"id":1}' http://127.0.0.1:8545 |jq
     // {
@@ -471,7 +469,7 @@ impl BcosSDK {
 }
 
 pub fn demo_query() {
-    let mut bcossdk = BcosSDK::new().unwrap();
+    let mut bcossdk = Bcos2Client::new().unwrap();
     let res = bcossdk.getBlockNumber();
     println!("getBlockNumber {:?}", res);
     println!("getNodeVersion {:?}", bcossdk.getNodeVersion()); //serde_json::to_string_pretty(&res).unwrap());

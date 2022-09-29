@@ -22,16 +22,15 @@
 use lazy_static::lazy_static;
 #[allow(unused_imports)]
 use pem::Pem;
+use wedpr_l_crypto_signature_secp256k1::WedprSecp256k1Recover;
 use wedpr_l_crypto_signature_sm2::WedprSm2p256v1;
 use wedpr_l_libsm::sm2::signature::SigCtx;
 use wedpr_l_utils::traits::Signature;
-use wedpr_l_crypto_signature_secp256k1::WedprSecp256k1Recover;
 
-
-use crate::bcossdk::bcosclientconfig::BcosCryptoKind;
-use crate::bcossdk::commonhash::{CommonHash, HashType};
-use crate::bcossdk::fileutils;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+use crate::bcossdkutil::bcosclientconfig::BcosCryptoKind;
+use crate::bcossdkutil::commonhash::{CommonHash, HashType};
+use crate::bcossdkutil::fileutils;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 
 ///常用账户熟悉和方法的封装
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -73,23 +72,20 @@ pub fn load_key_from_pem(pemfile: &str) -> Result<Vec<u8>, KissError> {
     match pemres {
         Ok(pem) => Ok(pem.contents),
         Err(e) => {
-            kisserr!(KissErrKind::EFormat,"load pem {:?} error {:?}", pemfile, e)
+            kisserr!(KissErrKind::EFormat, "load pem {:?} error {:?}", pemfile, e)
         }
     }
 }
 
-
 fn address_from_pubkey(pubkey: &Vec<u8>, hashtype: &HashType) -> Vec<u8> {
     let mut actpubkey = pubkey.clone();
-    if pubkey.len() == 65{
+    if pubkey.len() == 65 {
         actpubkey = actpubkey[1..].to_vec(); //去掉头部的压缩标记
     }
     let hash = CommonHash::hash(&actpubkey, hashtype);
     let addressbytes = hash[12..].to_vec();
     addressbytes
 }
-
-
 
 pub trait IBcosAccountUtil {
     ///创建随机账户
@@ -106,15 +102,14 @@ pub trait IBcosAccountUtil {
 pub struct EcdsaAccountUtil {}
 
 lazy_static! {
-     static ref WEDPRSM2:WedprSecp256k1Recover = WedprSecp256k1Recover::default();
+    static ref WEDPRSM2: WedprSecp256k1Recover = WedprSecp256k1Recover::default();
 }
 
 impl IBcosAccountUtil for EcdsaAccountUtil {
     ///创建一个基于随机数的账户
     fn create_random(&self) -> BcosAccount {
-
-        let (pubkey,secret_key) = WEDPRSM2.generate_keypair();
-        let address = address_from_pubkey(&pubkey,&HashType::KECCAK);
+        let (pubkey, secret_key) = WEDPRSM2.generate_keypair();
+        let address = address_from_pubkey(&pubkey, &HashType::KECCAK);
         BcosAccount {
             privkey: secret_key,
             pubkey: pubkey,
@@ -129,7 +124,7 @@ impl IBcosAccountUtil for EcdsaAccountUtil {
                 let account = BcosAccount {
                     privkey: privkey.clone(),
                     pubkey: pubkey.clone(),
-                    address: address_from_pubkey(&pubkey,&HashType::KECCAK),
+                    address: address_from_pubkey(&pubkey, &HashType::KECCAK),
                 };
                 Ok(account)
             }
@@ -146,7 +141,6 @@ impl IBcosAccountUtil for EcdsaAccountUtil {
 }
 
 //--------------------国密实现------------------------------------------
-
 
 lazy_static! {
     // Shared sm2 instance initialized for all functions.

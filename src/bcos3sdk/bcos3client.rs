@@ -7,16 +7,17 @@ use std::ffi::{CStr, CString};
 use libc::{c_char, c_int, c_longlong, c_void};
 use serde_json::Value as JsonValue;
 
-use crate::{kisserr, kisserrcode, str2p};
 use crate::bcos3sdk::bcos3sdkfuture::Bcos3SDKFuture;
-#[cfg(feature = "bcos3sdk_ffi")]
-use crate::bcos3sdk::bcos3sdkwrapper::{*};
-use crate::bcossdk::{fileutils};
-use crate::bcossdk::accountutil::account_from_pem;
-use crate::bcossdk::bcosclientconfig::{BcosCryptoKind, ClientConfig};
-use crate::bcossdk::commonhash::{CommonHash, HashType};
-use crate::bcossdk::contractabi::ContractABI;
-use crate::bcossdk::kisserror::{KissErrKind, KissError};
+
+use crate::bcos3sdk::bcos3sdkwrapper::bcos3sdk_def::*;
+use crate::bcos3sdk::bcos3sdkwrapper::*;
+use crate::bcossdkutil::accountutil::account_from_pem;
+use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ClientConfig};
+use crate::bcossdkutil::commonhash::{CommonHash, HashType};
+use crate::bcossdkutil::contractabi::ContractABI;
+use crate::bcossdkutil::fileutils;
+use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use crate::{kisserr, kisserrcode, str2p};
 
 //定义一个结构体，简单包装sdk指针，有待扩展
 pub struct Bcos3Client {
@@ -35,13 +36,30 @@ impl Bcos3Client {
     pub fn get_full_name(&self) -> String {
         format!("{}-{}-{}", self.clientname, self.chainid, self.group)
     }
-
+    pub fn get_last_errmsg()->String{
+        unsafe {
+            let mut msgstr = "";
+            let last_err_msg = bcos_sdk_get_last_error_msg();
+            if last_err_msg!=0 as *mut c_char{
+                msgstr = CStr::from_ptr(last_err_msg).to_str().unwrap();
+            }
+            return msgstr.to_string();
+        }
+    }
     pub fn new(configfile: &str) -> Result<Self, KissError> {
         unsafe {
             let config = ClientConfig::load(configfile).unwrap();
             let sdk = init_bcos3sdk_lib(config.bcos3.sdk_config_file.as_str());
+            if sdk == 0 as *const c_void{
+                return kisserr!(KissErrKind::Error,"BCOS3 C LIB is NOT init;ERROR:{}:{}",bcos_sdk_get_last_error(),Bcos3Client::get_last_errmsg());
+            }
+            if bcos_sdk_get_last_error()!=0{
+
+                return kisserr!(KissErrKind::Error,"BCOS3 C LIB init/start error {}",Bcos3Client::get_last_errmsg())
+            }
             let mut cryptotype = 0;
-            let account = account_from_pem(config.common.accountpem.as_str(), &config.common.crypto)?;
+            let account =
+                account_from_pem(config.common.accountpem.as_str(), &config.common.crypto)?;
             let privkey = hex::encode(account.privkey);
             let hashtype = CommonHash::crypto_to_hashtype(&config.common.crypto);
             match &config.common.crypto {
@@ -52,8 +70,8 @@ impl Bcos3Client {
                     cryptotype = 1;
                 }
             }
-            let keypair = bcos_sdk_create_keypair_by_hex_private_key
-                (cryptotype, str2p!(privkey.as_str()));
+            let keypair =
+                bcos_sdk_create_keypair_by_hex_private_key(cryptotype, str2p!(privkey.as_str()));
             let client = Bcos3Client {
                 clientname: "BCOS3".to_string(),
                 crytotype: cryptotype,
@@ -82,18 +100,29 @@ impl Bcos3Client {
 
     pub fn getBlockNumber(&self) -> Result<u64, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getBlockNumber", format!("").as_str());
-            bcos_rpc_get_block_number(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                      Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                      Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getBlockNumber",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_block_number(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
 
             let result = cbfuture.wait_result()?;
             let num_option = result.as_u64();
 
             match num_option {
-                Some(num) => { return Ok(num); }
-                None => { return kisserr!(KissErrKind::Error,"getBlockNumber from result error"); }
+                Some(num) => {
+                    return Ok(num);
+                }
+                None => {
+                    return kisserr!(KissErrKind::Error, "getBlockNumber from result error");
+                }
             }
         }
     }
@@ -114,123 +143,219 @@ impl Bcos3Client {
 
     pub fn getPbftView(&self) -> Result<u64, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getPbftView", format!("").as_str());
-            bcos_rpc_get_pbft_view(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                   Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                   Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getPbftView",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_pbft_view(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             let result = cbfuture.wait_result()?;
             let num_option = result.as_u64();
             match num_option {
-                Some(num) => { return Ok(num); }
-                None => { return kisserr!(KissErrKind::Error,"getPbftView from result error"); }
+                Some(num) => {
+                    return Ok(num);
+                }
+                None => {
+                    return kisserr!(KissErrKind::Error, "getPbftView from result error");
+                }
             }
         }
     }
 
-
     pub fn getSealerList(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getPbftView", format!("").as_str());
-            bcos_rpc_get_sealer_list(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()), Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                     Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getPbftView",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_sealer_list(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getObserverList(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getObserverList", format!("").as_str());
-            bcos_rpc_get_observer_list(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()), Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                       Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getObserverList",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_observer_list(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getConsensusStatus(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getConsensusStatus", format!("").as_str());
-            bcos_rpc_get_consensus_status(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()), Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                          Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getConsensusStatus",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_consensus_status(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getSyncStatus(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getSyncStatus", format!("").as_str());
-            bcos_rpc_get_sync_status(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()), Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                     Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getSyncStatus",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_sync_status(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getPeers(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getPeers", format!("").as_str());
-            bcos_rpc_get_peers(self.sdk, Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getPeers",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_peers(
+                self.sdk,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getGroupPeers(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getGroupPeers", format!("").as_str());
-            bcos_rpc_get_group_peers(self.sdk, str2p!(self.group.as_str()), Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                     Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getGroupPeers",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_group_peers(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getGroupList(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getGroupList", format!("").as_str());
-            bcos_rpc_get_group_list(self.sdk, Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getGroupList",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_group_list(
+                self.sdk,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
-    pub fn getBlockByHash(&self, block_hash: &str, only_header: u32, only_tx_hash: u32) -> Result<JsonValue, KissError> {
+    pub fn getBlockByHash(
+        &self,
+        block_hash: &str,
+        only_header: u32,
+        only_tx_hash: u32,
+    ) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getBlockByHash", format!("").as_str());
-            bcos_rpc_get_block_by_hash(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                       str2p!(block_hash),
-                                       only_header as c_int,
-                                       only_tx_hash as c_int,
-                                       Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getBlockByHash",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_block_by_hash(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                str2p!(block_hash),
+                only_header as c_int,
+                only_tx_hash as c_int,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
-    pub fn getBlockByNumber(&self, num: u64, only_header: u32, only_tx_hash: u32) -> Result<JsonValue, KissError> {
+    pub fn getBlockByNumber(
+        &self,
+        num: u64,
+        only_header: u32,
+        only_tx_hash: u32,
+    ) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getBlockByNumber", format!("").as_str());
-            bcos_rpc_get_block_by_number(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                         num as c_longlong,
-                                         only_header as c_int,
-                                         only_tx_hash as c_int,
-                                         Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                         Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getBlockByNumber",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_block_by_number(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                num as c_longlong,
+                only_header as c_int,
+                only_tx_hash as c_int,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getBlockHashByNumber(&self, num: u64) -> Result<String, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getBlockHashByNumber", format!("").as_str());
-            bcos_rpc_get_block_hash_by_number(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                              num as c_longlong,
-                                              Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getBlockHashByNumber",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_block_hash_by_number(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                num as c_longlong,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
 
             let v = cbfuture.wait_result()?;
             //println!("block v {:?}",v);
@@ -240,84 +365,136 @@ impl Bcos3Client {
     }
     pub fn getTotalTransactionCount(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getTotalTransactionCount", format!("").as_str());
-            bcos_rpc_get_total_transaction_count(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                                 Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getTotalTransactionCount",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_total_transaction_count(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
-
     pub fn getTransactionByHash(&self, hash: &str, proof: i32) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getTransactionByHash", format!("").as_str());
-            bcos_rpc_get_transaction(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                     str2p!(hash),
-                                     proof as c_int,
-                                     Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                     Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getTransactionByHash",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_transaction(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                str2p!(hash),
+                proof as c_int,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getTransactionReceipt(&self, hash: &str, proof: i32) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getTransactionReceipt", format!("").as_str());
-            bcos_rpc_get_transaction_receipt(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                             str2p!(hash),
-                                             proof,
-                                             Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getTransactionReceipt",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_transaction_receipt(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                str2p!(hash),
+                proof,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getPendingTxSize(&self) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getPendingTxSize", format!("").as_str());
-            bcos_rpc_get_pending_tx_size(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                         Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getPendingTxSize",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_pending_tx_size(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
     pub fn getCode(&self, address: &str) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getCode", format!("").as_str());
-            bcos_rpc_get_code(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                              str2p!(address),
-                              Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture =
+                Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(), "getCode", format!("").as_str());
+            bcos_rpc_get_code(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                str2p!(address),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
-
 
     pub fn getSystemConfigByKey(&self, key: &str) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "getSystemConfigByKey", format!("").as_str());
-            bcos_rpc_get_system_config_by_key(self.sdk, str2p!(self.group.as_str()), str2p!(self.node.as_str()),
-                                              str2p!(key),
-                                              Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC, Bcos3SDKFuture::to_c_ptr(&cbfuture));
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "getSystemConfigByKey",
+                format!("").as_str(),
+            );
+            bcos_rpc_get_system_config_by_key(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                str2p!(self.node.as_str()),
+                str2p!(key),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            );
             return cbfuture.wait_result();
         }
     }
 
-
-    pub fn call(&self, to: &str, funcname: &str, paramsvec: &Vec<String>, abi: &ContractABI) -> Result<JsonValue, KissError> {
+    pub fn call(
+        &self,
+        to: &str,
+        funcname: &str,
+        paramsvec: &Vec<String>,
+        abi: &ContractABI,
+    ) -> Result<JsonValue, KissError> {
         unsafe {
-            let functiondata = abi.encode_function_input_to_abi(funcname, &paramsvec, true).unwrap();
+            let functiondata = abi
+                .encode_function_input_to_abi(funcname, &paramsvec, true)
+                .unwrap();
             let seq = 0;
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  funcname, "do call");
-            bcos_rpc_call(self.sdk, str2p!(self.group.as_str()), 0 as *const c_char, str2p!(to),
-                          str2p!(functiondata),
-                          Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                          Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(), funcname, "do call");
+            bcos_rpc_call(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                0 as *const c_char,
+                str2p!(to),
+                str2p!(functiondata),
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
             );
 
             let response = cbfuture.wait().unwrap();
@@ -326,48 +503,59 @@ impl Bcos3Client {
         }
     }
 
-    pub fn sendRawTransaction(&self, to_address: &str, methodname: &str, functiondata: &str) -> Result<JsonValue, KissError>
-    {
+    pub fn sendRawTransaction(
+        &self,
+        to_address: &str,
+        methodname: &str,
+        functiondata: &str,
+    ) -> Result<JsonValue, KissError> {
         unsafe {
-            let cbfuture = Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(),
-                                                  "sendTransction", format!("{}", methodname).as_str());
+            let cbfuture = Bcos3SDKFuture::create(
+                Bcos3SDKFuture::next_seq(),
+                "sendTransction",
+                format!("{}", methodname).as_str(),
+            );
 
             //println!("function data len {}, {}", functiondata.len(), functiondata);
             let p_txhash = Box::into_raw(Box::new(0 as *mut c_char));
             let p_signed_tx = Box::into_raw(Box::new(0 as *mut c_char));
             let blocklimit = bcos_rpc_get_block_limit(self.sdk, str2p!(self.group.as_str()));
 
-            bcos_sdk_create_signed_transaction(self.keypair, str2p!(self.group.as_str()),
-                                               str2p!(self.chainid.as_str()),
-                                               str2p!(to_address),
-                                               str2p!(functiondata),
-                                               str2p!(""),
-                                               blocklimit, 0,
-                                               p_txhash,
-                                               p_signed_tx,
+            bcos_sdk_create_signed_transaction(
+                self.keypair,
+                str2p!(self.group.as_str()),
+                str2p!(self.chainid.as_str()),
+                str2p!(to_address),
+                str2p!(functiondata),
+                str2p!(""),
+                blocklimit,
+                0,
+                p_txhash,
+                p_signed_tx,
             );
             let lasterr = bcos_sdk_get_last_error();
             if lasterr != 0 {
                 let last_err_msg = bcos_sdk_get_last_error_msg();
                 let msgstr = CStr::from_ptr(last_err_msg).to_str().unwrap();
-                return kisserrcode!(KissErrKind::Error,lasterr as i64,"{}",msgstr);
+                return kisserrcode!(KissErrKind::Error, lasterr as i64, "{}", msgstr);
             }
 
             let txhash_str = CStr::from_ptr(*p_txhash);
             let signed_tx_str = CStr::from_ptr(*p_signed_tx);
 
-
             //println!("txhash {:?}", txhash_str);
             //println!("signed_tx {:?}", signed_tx_str);
-            bcos_rpc_send_transaction(self.sdk, str2p!(self.group.as_str()), 0 as *const c_char,
-                                      *p_signed_tx,
-                                      0,
-                                      Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
-                                      Bcos3SDKFuture::to_c_ptr(&cbfuture),
+            bcos_rpc_send_transaction(
+                self.sdk,
+                str2p!(self.group.as_str()),
+                0 as *const c_char,
+                *p_signed_tx,
+                0,
+                Bcos3SDKFuture::bcos_callback as BCOS3SDK_CALLBACK_FUNC,
+                Bcos3SDKFuture::to_c_ptr(&cbfuture),
             );
             bcos_sdk_c_free(*p_txhash as *const c_void);
             bcos_sdk_c_free(*p_signed_tx as *const c_void);
-
 
             let response = cbfuture.wait()?;
             let result = response.get_result().unwrap();
@@ -376,11 +564,12 @@ impl Bcos3Client {
         }
     }
 
-    pub fn sendTransaction(&self,
-                           to_address: &str,
-                           methodname: &str,
-                           params: &[String],
-                           contract: &ContractABI,
+    pub fn sendTransaction(
+        &self,
+        to_address: &str,
+        methodname: &str,
+        params: &[String],
+        contract: &ContractABI,
     ) -> Result<JsonValue, KissError> {
         let functiondata = contract.encode_function_input_to_abi(methodname, &params, true)?;
         let result = self.sendRawTransaction(to_address, methodname, functiondata.as_str());
