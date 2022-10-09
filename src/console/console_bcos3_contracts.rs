@@ -39,7 +39,7 @@ impl Bcos3Contract {
 pub fn deploy(cli: &Cli) -> Result<(), KissError> {
     let configfile = cli.default_configfile();
     let bcos3client = Bcos3Client::new(configfile.as_str())?;
-    println!("client Version:{}", bcos3client.getVersion().unwrap());
+    println!("{}",bcos3client.get_info());
     println!("-------------------------------------");
     //每次部署前强制编译一次对应合约，考虑到合约sol可能会有修改
     let res = console_compile(cli)?;
@@ -79,7 +79,7 @@ pub fn sendtx(cli: &Cli) -> Result<(), KissError> {
     let configfile = cli.default_configfile();
 
     let bcos3client = Bcos3Client::new(configfile.as_str())?;
-    println!("client Version:{}", bcos3client.getVersion().unwrap());
+    println!("{}",bcos3client.get_info());
     println!("-------------------------------------");
     //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）
     let mut cmdparams: Vec<String> = vec![cli.cmd.clone()];
@@ -138,7 +138,7 @@ pub fn call(cli: &Cli) -> Result<(), KissError> {
     let configfile = cli.default_configfile();
 
     let bcos3client = Bcos3Client::new(configfile.as_str())?;
-    println!("client Version:{}", bcos3client.getVersion().unwrap());
+    println!("{}",bcos3client.get_info());
     println!("-------------------------------------");
 
     //将cmd和param拼在一起，作为新的args，给到StructOpt去解析（因为第一个参数总是app名）

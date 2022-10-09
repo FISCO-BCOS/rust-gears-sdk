@@ -50,7 +50,7 @@ impl Bcos3Query {
 
 pub fn getVersion(cli: &Cli) -> Result<(), KissError> {
     let bcossdk = Bcos3Client::new(cli.default_configfile().as_str())?;
-    let v = bcossdk.getVersion()?;
+    let v = bcossdk.getVersion();
     println!("{}\n", v);
     Ok(())
 }

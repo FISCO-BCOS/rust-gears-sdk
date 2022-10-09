@@ -52,7 +52,7 @@ pub mod bcos3sdk_def {
         pub fn bcos_sdk_start(sdk: *const c_void);
         pub fn bcos_sdk_stop(sdk: *const c_void);
         pub fn bcos_sdk_destroy(sdk: *const c_void);
-        pub fn bcos_sdk_get_last_error_msg() -> *mut c_char;
+        pub fn bcos_sdk_get_last_error_msg() -> *const c_char;
         pub fn bcos_sdk_is_last_opr_success() -> c_int;
         pub fn bcos_sdk_get_last_error() -> c_int;
         pub fn bcos_rpc_get_group_info(
@@ -331,8 +331,8 @@ pub mod bcos3sdk_def {
     pub unsafe fn bcos_sdk_start(sdk: *const c_void) {}
     pub unsafe fn bcos_sdk_stop(sdk: *const c_void) {}
     pub unsafe fn bcos_sdk_destroy(sdk: *const c_void) {}
-    pub unsafe fn bcos_sdk_get_last_error_msg() -> *mut c_char {
-        return 0 as *mut c_char;
+    pub unsafe fn bcos_sdk_get_last_error_msg() -> *const c_char {
+        return 0 as *const c_char;
     }
     pub unsafe fn bcos_sdk_is_last_opr_success() -> c_int {
         return 0;

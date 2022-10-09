@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::thread;
 use std::time::Duration;
 
@@ -137,9 +137,8 @@ pub fn demo_event(cli: &Cli) -> Result<(), KissError> {
             );
             let lasterr = bcos_sdk_get_last_error();
             if lasterr != 0 {
-                let lasterrmsg = bcos_sdk_get_last_error_msg();
-                let msgstr = CString::from_raw(lasterrmsg).to_str().unwrap().to_string();
-                println!("event sub error {}", msgstr)
+                let lasterrmsg = Bcos3Client::getLastErrMessage();
+                println!("event sub error {}", lasterrmsg)
             }
             let mut n = 0;
             let mut count = 0;

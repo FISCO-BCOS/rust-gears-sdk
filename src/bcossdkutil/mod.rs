@@ -25,3 +25,4 @@ pub mod event_utils;
 pub mod fileutils;
 pub mod liteutils;
 pub mod solcompile;
+pub mod stattool;

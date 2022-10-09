@@ -3,65 +3,102 @@
 */
 
 use std::ffi::{CStr, CString};
+use std::sync::atomic::{AtomicU64, Ordering};
 
+use encoding::{DecoderTrap, Encoding};
+use encoding::all::GBK;
 use libc::{c_char, c_int, c_longlong, c_void};
 use serde_json::Value as JsonValue;
 
+use crate::{kisserr, kisserrcode, str2p};
+use crate::bcos3sdk::bcos3sdk_ini::Bcos3sdkIni;
 use crate::bcos3sdk::bcos3sdkfuture::Bcos3SDKFuture;
-
-use crate::bcos3sdk::bcos3sdkwrapper::bcos3sdk_def::*;
 use crate::bcos3sdk::bcos3sdkwrapper::*;
-use crate::bcossdkutil::accountutil::account_from_pem;
+use crate::bcos3sdk::bcos3sdkwrapper::bcos3sdk_def::*;
+use crate::bcossdkutil::accountutil::{account_from_pem, BcosAccount};
 use crate::bcossdkutil::bcosclientconfig::{BcosCryptoKind, ClientConfig};
 use crate::bcossdkutil::commonhash::{CommonHash, HashType};
 use crate::bcossdkutil::contractabi::ContractABI;
 use crate::bcossdkutil::fileutils;
 use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
-use crate::{kisserr, kisserrcode, str2p};
 
 //定义一个结构体，简单包装sdk指针，有待扩展
 pub struct Bcos3Client {
     pub crytotype: i32,
     pub hashtype: HashType,
     pub keypair: *const c_void,
+    pub account: BcosAccount,
     pub config: ClientConfig,
+    pub bcos3sdkini: Bcos3sdkIni,
     pub sdk: *const c_void,
     pub clientname: String,
     pub group: String,
     pub chainid: String,
     pub node: String,
+    pub reqcounter: AtomicU64,
 }
 
 impl Bcos3Client {
     pub fn get_full_name(&self) -> String {
         format!("{}-{}-{}", self.clientname, self.chainid, self.group)
     }
-    pub fn get_last_errmsg()->String{
+    pub fn getLastError() -> i32 {
         unsafe {
-            let mut msgstr = "";
+            let errcode = bcos_sdk_get_last_error();
+            return errcode as i32;
+        }
+    }
+    pub fn get_info(&self) -> String {
+        let info = format!("chain:[{}],group:[{}],crypto:[{}],account:[0x{}],peers:[{:?}]\n{}",
+                           self.chainid, self.group, self.crytotype,
+                           hex::encode(&self.account.address),
+                           self.bcos3sdkini.peers,
+                           self.getVersion()
+        );
+        return info;
+    }
+
+    //驼峰式命名用于包装native c sdk 接口的方法，没啥原因，就是做个区分
+    pub fn getLastErrMessage() -> String {
+        unsafe {
+            let mut msgstr: String = "".to_string();
             let last_err_msg = bcos_sdk_get_last_error_msg();
-            if last_err_msg!=0 as *mut c_char{
-                msgstr = CStr::from_ptr(last_err_msg).to_str().unwrap();
+            if last_err_msg != (0 as *mut c_char) {
+                let errcstr = CStr::from_ptr(last_err_msg);
+                let errcstr_tostr = errcstr.to_str();
+                //这里要处理下编码，rust默认是UTF-8,如果不ok，那就是其他字符集
+                if errcstr_tostr.is_ok() {
+                    msgstr = errcstr_tostr.unwrap().to_string();
+                } else {
+                    //强行尝试对CStr对象进行GBK解码,采用replace策略
+                    //todo: 如果在使用其他编码的平台上依旧有可能失败，得到空消息，但不会抛异常了
+                    let alter_msg = GBK.decode(errcstr.to_bytes(), DecoderTrap::Replace);
+                    // let alter_msg = encoding::all::UTF_8.decode(errcstr.to_bytes(),DecoderTrap::Replace);
+                    if alter_msg.is_ok() {
+                        msgstr = alter_msg.unwrap();
+                    }
+                }
             }
-            return msgstr.to_string();
+            return msgstr;
         }
     }
     pub fn new(configfile: &str) -> Result<Self, KissError> {
         unsafe {
             let config = ClientConfig::load(configfile).unwrap();
             let sdk = init_bcos3sdk_lib(config.bcos3.sdk_config_file.as_str());
-            if sdk == 0 as *const c_void{
-                return kisserr!(KissErrKind::Error,"BCOS3 C LIB is NOT init;ERROR:{}:{}",bcos_sdk_get_last_error(),Bcos3Client::get_last_errmsg());
+            if sdk == 0 as *const c_void {
+                return kisserr!(KissErrKind::Error,"BCOS3 C LIB is NOT init;ERROR:{}:{}",bcos_sdk_get_last_error(),Bcos3Client::getLastErrMessage());
             }
-            if bcos_sdk_get_last_error()!=0{
-
-                return kisserr!(KissErrKind::Error,"BCOS3 C LIB init/start error {}",Bcos3Client::get_last_errmsg())
+            if bcos_sdk_get_last_error() != 0 {
+                return kisserr!(KissErrKind::Error,"BCOS3 C LIB init/start error {}",Bcos3Client::getLastErrMessage());
             }
+            let bcos3sdkini = Bcos3sdkIni::load(config.bcos3.sdk_config_file.as_str())?;
             let mut cryptotype = 0;
             let account =
                 account_from_pem(config.common.accountpem.as_str(), &config.common.crypto)?;
-            let privkey = hex::encode(account.privkey);
+            let privkey = hex::encode(&account.privkey);
             let hashtype = CommonHash::crypto_to_hashtype(&config.common.crypto);
+
             match &config.common.crypto {
                 BcosCryptoKind::ECDSA => {
                     cryptotype = 0;
@@ -72,6 +109,7 @@ impl Bcos3Client {
             }
             let keypair =
                 bcos_sdk_create_keypair_by_hex_private_key(cryptotype, str2p!(privkey.as_str()));
+
             let client = Bcos3Client {
                 clientname: "BCOS3".to_string(),
                 crytotype: cryptotype,
@@ -80,8 +118,11 @@ impl Bcos3Client {
                 group: config.bcos3.group.clone(),
                 chainid: "chain0".to_string(),
                 config: config,
+                bcos3sdkini: bcos3sdkini,
                 keypair: keypair,
+                account: account,
                 node: "".to_string(),
+                reqcounter: AtomicU64::new(0),
             };
             Ok(client)
         }
@@ -99,6 +140,7 @@ impl Bcos3Client {
     }
 
     pub fn getBlockNumber(&self) -> Result<u64, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -127,14 +169,19 @@ impl Bcos3Client {
         }
     }
 
-    pub fn getVersion(&self) -> Result<String, KissError> {
+    pub fn getVersion(&self) -> String {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let version = bcos_sdk_version();
-            let s_v = CStr::from_ptr(version).to_str().unwrap().to_string();
-            Ok(s_v)
+            let s_v = CStr::from_ptr(version).to_str();
+            if s_v.is_ok() {
+                return s_v.unwrap().to_string();
+            }
+            return "[UNKNOW VERSION]".to_string();
         }
     }
     pub fn getBlocklimit(&self) -> Result<u64, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let new_blockLimit = bcos_rpc_get_block_limit(self.sdk, str2p!(self.group.as_str()));
             Ok(new_blockLimit as u64)
@@ -142,6 +189,7 @@ impl Bcos3Client {
     }
 
     pub fn getPbftView(&self) -> Result<u64, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -169,6 +217,7 @@ impl Bcos3Client {
     }
 
     pub fn getSealerList(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -187,6 +236,7 @@ impl Bcos3Client {
     }
 
     pub fn getObserverList(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -205,6 +255,7 @@ impl Bcos3Client {
     }
 
     pub fn getConsensusStatus(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -223,6 +274,7 @@ impl Bcos3Client {
     }
 
     pub fn getSyncStatus(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -241,6 +293,7 @@ impl Bcos3Client {
     }
 
     pub fn getPeers(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -257,6 +310,7 @@ impl Bcos3Client {
     }
 
     pub fn getGroupPeers(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -274,6 +328,7 @@ impl Bcos3Client {
     }
 
     pub fn getGroupList(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -295,6 +350,7 @@ impl Bcos3Client {
         only_header: u32,
         only_tx_hash: u32,
     ) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -321,6 +377,7 @@ impl Bcos3Client {
         only_header: u32,
         only_tx_hash: u32,
     ) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -342,6 +399,7 @@ impl Bcos3Client {
     }
 
     pub fn getBlockHashByNumber(&self, num: u64) -> Result<String, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -364,6 +422,7 @@ impl Bcos3Client {
         }
     }
     pub fn getTotalTransactionCount(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -382,6 +441,7 @@ impl Bcos3Client {
     }
 
     pub fn getTransactionByHash(&self, hash: &str, proof: i32) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -402,6 +462,7 @@ impl Bcos3Client {
     }
 
     pub fn getTransactionReceipt(&self, hash: &str, proof: i32) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -422,6 +483,7 @@ impl Bcos3Client {
     }
 
     pub fn getPendingTxSize(&self) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -440,6 +502,7 @@ impl Bcos3Client {
     }
 
     pub fn getCode(&self, address: &str) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture =
                 Bcos3SDKFuture::create(Bcos3SDKFuture::next_seq(), "getCode", format!("").as_str());
@@ -456,6 +519,7 @@ impl Bcos3Client {
     }
 
     pub fn getSystemConfigByKey(&self, key: &str) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -481,6 +545,7 @@ impl Bcos3Client {
         paramsvec: &Vec<String>,
         abi: &ContractABI,
     ) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let functiondata = abi
                 .encode_function_input_to_abi(funcname, &paramsvec, true)
@@ -509,6 +574,7 @@ impl Bcos3Client {
         methodname: &str,
         functiondata: &str,
     ) -> Result<JsonValue, KissError> {
+        self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
             let cbfuture = Bcos3SDKFuture::create(
                 Bcos3SDKFuture::next_seq(),
@@ -533,13 +599,11 @@ impl Bcos3Client {
                 p_txhash,
                 p_signed_tx,
             );
-            let lasterr = bcos_sdk_get_last_error();
+            let lasterr = Bcos3Client::getLastError();
             if lasterr != 0 {
-                let last_err_msg = bcos_sdk_get_last_error_msg();
-                let msgstr = CStr::from_ptr(last_err_msg).to_str().unwrap();
-                return kisserrcode!(KissErrKind::Error, lasterr as i64, "{}", msgstr);
+                let last_err_msg = Bcos3Client::getLastErrMessage();
+                return kisserrcode!(KissErrKind::Error, lasterr as i64, "{}", last_err_msg);
             }
-
             let txhash_str = CStr::from_ptr(*p_txhash);
             let signed_tx_str = CStr::from_ptr(*p_signed_tx);
 

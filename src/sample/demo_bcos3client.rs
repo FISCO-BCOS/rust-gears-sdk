@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use fisco_bcos_rust_gears_sdk::bcos3sdk::bcos3client::Bcos3Client;
 use fisco_bcos_rust_gears_sdk::bcossdkutil::commonhash::HashType;
 use fisco_bcos_rust_gears_sdk::bcossdkutil::contractabi::ContractABI;
@@ -6,11 +7,13 @@ use fisco_bcos_rust_gears_sdk::bcossdkutil::liteutils::{datetime_str, json_str};
 
 use crate::bcossdkutil::contracthistory::ContractHistory;
 use crate::bcossdkutil::liteutils;
+use crate::bcossdkutil::stattool::StatTime;
 use crate::console::console_utils::display_transaction;
 use crate::Cli;
 
 pub fn demo_tx(cli: &Cli) -> Result<(), KissError> {
     let mut bcos3client = Bcos3Client::new(cli.default_configfile().as_str())?;
+    println!("{}",bcos3client.get_info());
     // 1) deploy
     let result = bcos3client.deploy_file("contracts/HelloWorld.bin", "")?;
     println!("Deploy Result {:?}", result);
@@ -56,7 +59,10 @@ pub fn demo_tx(cli: &Cli) -> Result<(), KissError> {
 }
 
 pub fn demo_get(cli: &Cli) -> Result<(), KissError> {
+
     let mut bcos3client = Bcos3Client::new(cli.default_configfile().as_str())?;
+    println!("{}",bcos3client.get_info());
+    let mut stat = StatTime::begin();
     let blocknum = bcos3client.getBlockNumber()?;
     println!("getBlockNumber {:?}", blocknum);
     println!("getBlockLimit {:?}", bcos3client.getBlocklimit());
@@ -99,6 +105,14 @@ pub fn demo_get(cli: &Cli) -> Result<(), KissError> {
     let receipt = bcos3client.getTransactionReceipt(txhash, 0);
     println!("get receipt  result {:?}", receipt);
     println!("getPendingTxSize {:?}", bcos3client.getPendingTxSize());
+    stat.done();
+    let used_ms = stat.used_ms();
+    let mut reqcount = bcos3client.reqcounter.load(Ordering::Relaxed);
+    if reqcount == 0{
+        reqcount = 1;
+    }
+    let avg:f64 = used_ms as f64/ reqcount as f64;
+    println!("demo get, use ms: [{}], req : [{}] , avg: [{:.3}]",used_ms,reqcount,avg);
     //println!("getPeers {:?}",bcos3client.getPeers());
     bcos3client.finish();
     Ok(())
