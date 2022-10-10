@@ -562,8 +562,7 @@ impl Bcos3Client {
                 Bcos3SDKFuture::to_c_ptr(&cbfuture),
             );
 
-            let response = cbfuture.wait().unwrap();
-            let result = response.get_result()?;
+            let result = cbfuture.wait_result()?;
             Ok(result)
         }
     }
@@ -621,8 +620,7 @@ impl Bcos3Client {
             bcos_sdk_c_free(*p_txhash as *const c_void);
             bcos_sdk_c_free(*p_signed_tx as *const c_void);
 
-            let response = cbfuture.wait()?;
-            let result = response.get_result().unwrap();
+            let result = cbfuture.wait_result()?;
 
             Ok(result)
         }

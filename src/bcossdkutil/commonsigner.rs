@@ -8,16 +8,17 @@
   @date: 2021-07
 */
 #![allow(
-    clippy::unreadable_literal,
-    clippy::upper_case_acronyms,
-    dead_code,
-    non_camel_case_types,
-    non_snake_case,
-    non_upper_case_globals,
-    overflowing_literals,
-    unused_variables,
-    unused_assignments
+clippy::unreadable_literal,
+clippy::upper_case_acronyms,
+dead_code,
+non_camel_case_types,
+non_snake_case,
+non_upper_case_globals,
+overflowing_literals,
+unused_variables,
+unused_assignments
 )]
+
 use std::convert::From;
 
 //#[macro_use]
@@ -27,8 +28,8 @@ use wedpr_l_crypto_signature_sm2::WedprSm2p256v1;
 use wedpr_l_libsm::sm2::signature::Signature as WEDPRSM2Signature;
 use wedpr_l_utils::traits::Signature;
 
-use crate::bcossdkutil::accountutil::GMAccountUtil;
 use crate::bcossdkutil::accountutil::{BcosAccount, EcdsaAccountUtil, IBcosAccountUtil};
+use crate::bcossdkutil::accountutil::GMAccountUtil;
 use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
 
 ///secp256原始方式的签名串, * Ecdsa的签名结构和国密略有不同,国密的v直接就是公钥
@@ -79,6 +80,7 @@ impl CommonSignature {
 
 ///一些secp256的特有方法
 pub struct Secp256Signature {}
+
 //ecdsa对签名串的一些处理方法，主要是处理chainid,实际上bcos也不是很关心chainid了，这里的代码仅供参考，备不时所需
 impl Secp256Signature {
     ///将v从64位转成8位
@@ -169,6 +171,7 @@ pub struct CommonSignerWeDPR_Secp256 {
     pub account: BcosAccount,
     pub signer: WedprSecp256k1Recover,
 }
+
 //unsafe impl Send for CommonSignerWeDPR_Secp256{}
 //unsafe impl Sync for CommonSignerWeDPR_Secp256{}
 impl ICommonSigner for CommonSignerWeDPR_Secp256 {
@@ -259,6 +262,7 @@ impl CommonSignerWeDPR_SM2 {
 }
 
 static demokeyhex: &str = "82dcd33c98a23d5d06f9331554e14ab4044a1d71b169b7a38b61c214f0690f80";
+
 pub fn test_common_sign() {
     //let mut ecdsasigner: CommonSignerSecp256 = CommonSignerSecp256::default();
     let mut wedprsigner: CommonSignerWeDPR_Secp256 = CommonSignerWeDPR_Secp256::default();
@@ -280,14 +284,15 @@ pub fn test_common_sign() {
         &recover.len(),
         &recover
     );
-    let sp = Secp256Signature::to_electrum(&s2.to_vec()); /*
-                                                          let sig = ParityEcdsaSignature::from_electrum(sp.as_slice());
-                                                          let recoverresult = publickey::recover(&sig, &data).unwrap();
-                                                          println!(
-                                                              "recover by ecdsa ,pubkey len {}, {:?}",
-                                                              recoverresult.as_bytes().len(),
-                                                              recoverresult.as_bytes()
-                                                          );*/
+    let sp = Secp256Signature::to_electrum(&s2.to_vec());
+    /*
+     let sig = ParityEcdsaSignature::from_electrum(sp.as_slice());
+     let recoverresult = publickey::recover(&sig, &data).unwrap();
+     println!(
+     "recover by ecdsa ,pubkey len {}, {:?}",
+     recoverresult.as_bytes().len(),
+     recoverresult.as_bytes()
+     );*/
 
     let s = CommonSignature::from_vec(&s2.to_vec());
 
