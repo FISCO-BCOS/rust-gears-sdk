@@ -56,7 +56,7 @@ pub fn getVersion(cli: &Cli) -> Result<(), KissError> {
 }
 
 pub fn getBlockLimit(cli: &Cli) -> Result<(), KissError> {
-    let bcossdk = Bcos3Client::new(cli.default_configfile().as_str())?;
+    let mut bcossdk = Bcos3Client::new(cli.default_configfile().as_str())?;
     let v = bcossdk.getBlocklimit()?;
     println!("\n {:?}\n", v);
     Ok(())

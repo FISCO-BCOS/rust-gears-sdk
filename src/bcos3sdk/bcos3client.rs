@@ -9,6 +9,7 @@ use encoding::{DecoderTrap, Encoding};
 use encoding::all::GBK;
 use libc::{c_char, c_int, c_longlong, c_void};
 use serde_json::Value as JsonValue;
+use time::{Duration, Tm};
 
 use crate::{kisserr, kisserrcode, str2p};
 use crate::bcos3sdk::bcos3sdk_ini::Bcos3sdkIni;
@@ -36,6 +37,8 @@ pub struct Bcos3Client {
     pub chainid: String,
     pub node: String,
     pub reqcounter: AtomicU64,
+    pub lastblocklimittime: Tm,
+    pub lastblocklimit: u64,
 }
 
 impl Bcos3Client {
@@ -123,6 +126,8 @@ impl Bcos3Client {
                 account: account,
                 node: "".to_string(),
                 reqcounter: AtomicU64::new(0),
+                lastblocklimit: 0,
+                lastblocklimittime: time::now() - Duration::seconds(1000),
             };
             Ok(client)
         }
@@ -180,11 +185,24 @@ impl Bcos3Client {
             return "[UNKNOW VERSION]".to_string();
         }
     }
-    pub fn getBlocklimit(&self) -> Result<u64, KissError> {
+    pub fn getBlocklimit(&mut self) -> Result<u64, KissError> {
         self.reqcounter.fetch_add(1, Ordering::Relaxed);
         unsafe {
+            if time::now() - self.lastblocklimittime < Duration::seconds(15) && self.lastblocklimit > 0 {
+                //每15秒从节点更新一次blocklimit,避免频繁的更新，一般来说每秒出块绝不会超过n个，所以这个时间窗是ok的
+                return Ok(self.lastblocklimit);
+            }
             let new_blockLimit = bcos_rpc_get_block_limit(self.sdk, str2p!(self.group.as_str()));
-            Ok(new_blockLimit as u64)
+            if new_blockLimit <= 0 {
+                if self.lastblocklimit > 0 {
+                    //偶尔获取失败，且本地还有获取过的blocklimit，则返回本地的blocklimit，大概率是可以继续的，但不更新获取时间,下次调用会再尝试获取
+                    return Ok(self.lastblocklimit);
+                }
+                return kisserr!(KissErrKind::Error,"get blocklimit from chain error,res : {}",new_blockLimit);
+            }
+            self.lastblocklimit = new_blockLimit as u64;
+            self.lastblocklimittime = time::now();
+            Ok(self.lastblocklimit)
         }
     }
 
@@ -568,7 +586,7 @@ impl Bcos3Client {
     }
 
     pub fn sendRawTransaction(
-        &self,
+        &mut self,
         to_address: &str,
         methodname: &str,
         functiondata: &str,
@@ -584,7 +602,7 @@ impl Bcos3Client {
             //println!("function data len {}, {}", functiondata.len(), functiondata);
             let p_txhash = Box::into_raw(Box::new(0 as *mut c_char));
             let p_signed_tx = Box::into_raw(Box::new(0 as *mut c_char));
-            let blocklimit = bcos_rpc_get_block_limit(self.sdk, str2p!(self.group.as_str()));
+            let blocklimit = self.getBlocklimit()?;
 
             bcos_sdk_create_signed_transaction(
                 self.keypair,
@@ -593,7 +611,7 @@ impl Bcos3Client {
                 str2p!(to_address),
                 str2p!(functiondata),
                 str2p!(""),
-                blocklimit,
+                blocklimit as c_longlong,
                 0,
                 p_txhash,
                 p_signed_tx,
@@ -627,7 +645,7 @@ impl Bcos3Client {
     }
 
     pub fn sendTransaction(
-        &self,
+        &mut self,
         to_address: &str,
         methodname: &str,
         params: &[String],
@@ -638,20 +656,20 @@ impl Bcos3Client {
         return result;
     }
 
-    pub fn deploy_hexcode(&self, hexcode: &str) -> Result<JsonValue, KissError> {
+    pub fn deploy_hexcode(&mut self, hexcode: &str) -> Result<JsonValue, KissError> {
         return self.sendRawTransaction("", "", hexcode);
     }
     //-----------------------------------------------------------------------------------
     ///部署合约，输入合约的bin文件，以及构造函数所需的参数，将构造函数参数后附在最后。部署完成后返回Json或错误信息
     ///参数用contractABI的构造函数encode_constructor_input构建
-    pub fn deploy_file(&self, binfile: &str, params: &str) -> Result<JsonValue, KissError> {
+    pub fn deploy_file(&mut self, binfile: &str, params: &str) -> Result<JsonValue, KissError> {
         let hexcode = fileutils::readstring(binfile)?;
         let codewithparam = format!("{}{}", hexcode, params); //追加参数
         self.deploy_hexcode(codewithparam.as_str())
     }
     //传入已经加载的二进制合约代码，合约名，字符串数组类型的参数，部署合约
     pub fn deploy_code_withparam(
-        &self,
+        &mut self,
         hexcode: &str,
         contractname: &str,
         params_array: &[String],
@@ -671,7 +689,7 @@ impl Bcos3Client {
 
     //传入合约名，从bin文件加载合约代码，拼装字符串数组类型的参数，部署合约
     pub fn deploy_withparam(
-        &self,
+        &mut self,
         contractname: &str,
         params_array: &[String],
     ) -> Result<JsonValue, KissError> {
