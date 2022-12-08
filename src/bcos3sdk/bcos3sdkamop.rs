@@ -1,7 +1,9 @@
 /*amop回调示例，未完整实现
 参见： https://fisco-bcos-doc.readthedocs.io/zh_CN/latest/docs/develop/sdk/c_sdk/api.html#bcos-amop-subscribe-topic-with-cb
 */
-use std::ffi::{c_char, CStr};
+use std::ffi::{CStr};
+use libc::{c_char};
+
 
 use crate::bcos3sdk::bcos3sdkresponse::{bcos_sdk_c_struct_response, Bcos3SDKResponse};
 
