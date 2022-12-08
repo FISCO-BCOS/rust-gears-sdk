@@ -37,7 +37,7 @@ wedpr_l_crypto_ecies_secp256k1 = "1.1.0"
 wedpr_l_crypto_signature_sm2 = "1.1.0"
 wedpr_l_crypto_hash_sm3 = "1.1.0"
 wedpr_l_libsm = "0.3.5"
-secp256k1 = "0.17"
+secp256k1 = "0.24.0"
 lazy_static = "1.4.0"
 failure = "0.1"
 rlp = { version = "0.4.6" }
