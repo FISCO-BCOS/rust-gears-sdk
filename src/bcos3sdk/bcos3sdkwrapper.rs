@@ -42,8 +42,8 @@ pub mod bcos3sdk_def {
     use crate::bcos3sdk::bcos3sdkwrapper::{
         BCOS3SDK_AMOP_SUB_CALLBACK_FUNC, BCOS3SDK_CALLBACK_FUNC,
     };
-    use libc::{c_char, c_int, c_ulong};
-    use std::ffi::{c_longlong, c_void};
+    use libc::{c_char, c_int, c_ulong, c_longlong};
+    use std::ffi::{c_void};
 
     #[link(name = "bcos-c-sdk")]
     extern "C" {
