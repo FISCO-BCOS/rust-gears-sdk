@@ -31,6 +31,8 @@ use crate::bcossdkutil::bcosclientconfig::BcosCryptoKind;
 use crate::bcossdkutil::commonhash::{CommonHash, HashType};
 use crate::bcossdkutil::fileutils;
 use crate::bcossdkutil::kisserror::{KissErrKind, KissError};
+use pkcs8::PrivateKeyInfo;
+use std::convert::TryFrom;
 
 ///常用账户熟悉和方法的封装
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -70,11 +72,39 @@ pub fn load_key_from_pem(pemfile: &str) -> Result<Vec<u8>, KissError> {
     let key = fileutils::read_all(pemfile)?;
     let pemres = pem::parse(key);
     match pemres {
-        Ok(pem) => Ok(pem.contents),
+        Ok(pem) => {
+            let privkey = try_from_fisco_pem_format(pem.contents.clone());
+            match privkey {
+                Some(v) => Ok(v),
+                None => Ok(pem.contents),
+            }
+        }
         Err(e) => {
             kisserr!(KissErrKind::EFormat, "load pem {:?} error {:?}", pemfile, e)
         }
     }
+}
+
+#[derive(asn1::Asn1Read, asn1::Asn1Write, Debug)]
+pub struct FiscoPrivateKey<'a> {
+    Version: u64,
+    PrivateKey: &'a [u8],
+    #[explicit(0)]
+    NamedCurveOID: Option<asn1::ObjectIdentifier>,
+    #[explicit(1)]
+    PublicKey: Option<asn1::BitString<'a>>,
+}
+
+/// 尝试Fisco console生成的PKCS8格式解析
+pub fn try_from_fisco_pem_format(contents: Vec<u8>) -> Option<Vec<u8>> {
+    if let Ok(private_key_info) = PrivateKeyInfo::try_from(contents.as_ref()) {
+        if let Ok(fisco_private_key) =
+            asn1::parse_single::<FiscoPrivateKey>(private_key_info.private_key)
+        {
+            return Some(fisco_private_key.PrivateKey.to_vec());
+        }
+    }
+    None
 }
 
 fn address_from_pubkey(pubkey: &Vec<u8>, hashtype: &HashType) -> Vec<u8> {
