@@ -87,12 +87,12 @@ pub fn load_key_from_pem(pemfile: &str) -> Result<Vec<u8>, KissError> {
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug)]
 pub struct FiscoPrivateKey<'a> {
-    Version: u64,
-    PrivateKey: &'a [u8],
+    version: u64,
+    privatekey: &'a [u8],
     #[explicit(0)]
-    NamedCurveOID: Option<asn1::ObjectIdentifier>,
+    named_curve_oid: Option<asn1::ObjectIdentifier>,
     #[explicit(1)]
-    PublicKey: Option<asn1::BitString<'a>>,
+    publickey: Option<asn1::BitString<'a>>,
 }
 
 /// 尝试Fisco console生成的PKCS8格式解析
@@ -101,7 +101,7 @@ pub fn try_from_fisco_pem_format(contents: Vec<u8>) -> Option<Vec<u8>> {
         if let Ok(fisco_private_key) =
             asn1::parse_single::<FiscoPrivateKey>(private_key_info.private_key)
         {
-            return Some(fisco_private_key.PrivateKey.to_vec());
+            return Some(fisco_private_key.privatekey.to_vec());
         }
     }
     None
